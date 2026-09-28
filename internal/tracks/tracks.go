@@ -48,6 +48,27 @@ type Track struct {
 	Corners   []Corner  `json:"corners"`
 	// Straights are filled from data/names.json.
 	Straights []Straight `json:"straights,omitempty"`
+	// MarshalSectors are where each marshal sector starts, in number order.
+	// Race control reports yellow flags by marshal sector.
+	MarshalSectors []MarshalSector `json:"marshal_sectors,omitempty"`
+}
+
+// MarshalSector is the start of a marshal sector.
+type MarshalSector struct {
+	Number   int   `json:"number"`
+	Position Point `json:"position"`
+}
+
+// MarshalSectorSpan returns where a marshal sector starts and ends (the start
+// of the next one, wrapping round the lap).
+func (t *Track) MarshalSectorSpan(number int) (from, to Point, ok bool) {
+	for i, m := range t.MarshalSectors {
+		if m.Number == number {
+			next := t.MarshalSectors[(i+1)%len(t.MarshalSectors)]
+			return m.Position, next.Position, true
+		}
+	}
+	return Point{}, Point{}, false
 }
 
 // Straight is a named straight between two corners.

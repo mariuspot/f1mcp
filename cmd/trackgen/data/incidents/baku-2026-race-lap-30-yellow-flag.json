@@ -1,0 +1,36 @@
+{
+  "name": "baku-2026-race-lap-30-yellow-flag",
+  "circuit_id": "baku",
+  "year": 2026,
+  "session_key": 11377,
+  "session": "Azerbaijan Grand Prix · Race",
+  "corner": 1,
+  "overlay": {
+    "highlights": [
+      {
+        "from": [856.2, -678.2],
+        "to": [2743.8, 112.3],
+        "color": "#FFD100",
+        "style": 0,
+        "label": "Yellow · sector 1"
+      },
+      {
+        "from": [2743.8, 112.3],
+        "to": [2879.5, 2819.9],
+        "color": "#FFD100",
+        "style": 0,
+        "label": "Yellow · sector 2"
+      }
+    ],
+    "markers": [
+      {
+        "position": [3483, 1447],
+        "label": "NOR",
+        "color": "F47600"
+      }
+    ],
+    "banner": "YELLOW FLAG · Race · Lap 30 · 11:56 UTC",
+    "banner_color": "#E0A800",
+    "caption": "NOR · between turns 1 and 2"
+  }
+}

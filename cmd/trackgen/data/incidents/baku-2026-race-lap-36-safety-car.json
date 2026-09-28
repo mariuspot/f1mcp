@@ -1,0 +1,56 @@
+{
+  "name": "baku-2026-race-lap-36-safety-car",
+  "circuit_id": "baku",
+  "year": 2026,
+  "session_key": 11377,
+  "session": "Azerbaijan Grand Prix · Race",
+  "corner": 1,
+  "overlay": {
+    "highlights": [
+      {
+        "from": [856.2, -678.2],
+        "to": [2743.8, 112.3],
+        "color": "#FFD100",
+        "style": 0,
+        "label": "Yellow · sector 1"
+      },
+      {
+        "from": [2743.8, 112.3],
+        "to": [2879.5, 2819.9],
+        "color": "#FF8A00",
+        "style": 1,
+        "label": "Double yellow · sector 2"
+      },
+      {
+        "from": [2879.5, 2819.9],
+        "to": [155.6, 2902.1],
+        "color": "#FFD100",
+        "style": 0,
+        "label": "Yellow · sector 3"
+      },
+      {
+        "from": [155.6, 2902.1],
+        "to": [-4117.5, 1097.5],
+        "color": "#FF8A00",
+        "style": 1,
+        "faint": true,
+        "label": "Double yellow · sector 4"
+      }
+    ],
+    "markers": [
+      {
+        "position": [3695, 939],
+        "label": "NOR",
+        "color": "F47600"
+      },
+      {
+        "position": [3688, 965],
+        "label": "COL",
+        "color": "00A1E8"
+      }
+    ],
+    "banner": "SAFETY CAR · Race · Lap 36 · 12:12 UTC",
+    "banner_color": "#E0A800",
+    "caption": "Stopped: NOR, COL · Turn 1"
+  }
+}

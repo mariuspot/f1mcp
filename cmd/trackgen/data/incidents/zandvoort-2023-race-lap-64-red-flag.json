@@ -1,0 +1,29 @@
+{
+  "name": "zandvoort-2023-race-lap-64-red-flag",
+  "circuit_id": "zandvoort",
+  "year": 2023,
+  "session_key": 9149,
+  "session": "Dutch Grand Prix · Race",
+  "corner": 1,
+  "overlay": {
+    "highlights": [
+      {
+        "from": [1259.5, 5680.5],
+        "to": [1987.1, 5311.6],
+        "color": "#FF8A00",
+        "style": 1,
+        "label": "Double yellow · sector 2"
+      }
+    ],
+    "markers": [
+      {
+        "position": [1497, 6426],
+        "label": "ZHO",
+        "color": "C92D4B"
+      }
+    ],
+    "banner": "RED FLAG · Race · Lap 64 · 14:31 UTC",
+    "banner_color": "#E10600",
+    "caption": "Stopped: ZHO · between turns 14 and 1"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "suzuka-2024-race-lap-1-red-flag",
+  "circuit_id": "suzuka",
+  "year": 2024,
+  "session_key": 9496,
+  "session": "Japanese Grand Prix · Race",
+  "corner": 3,
+  "overlay": {
+    "highlights": [
+      {
+        "from": [4982.6, -6958.9],
+        "to": [3770.3, -5370.9],
+        "color": "#FFD100",
+        "style": 0,
+        "label": "Yellow · sector 3"
+      },
+      {
+        "from": [3770.3, -5370.9],
+        "to": [1886.8, -3655.6],
+        "color": "#FFD100",
+        "style": 0,
+        "label": "Yellow · sector 4"
+      }
+    ],
+    "markers": [
+      {
+        "position": [3842, -5658],
+        "label": "RIC",
+        "color": "6692FF"
+      },
+      {
+        "position": [3255, -5442],
+        "label": "ALB",
+        "color": "64C4FF"
+      }
+    ],
+    "banner": "RED FLAG · Race · Lap 1 · 05:04 UTC",
+    "banner_color": "#E10600",
+    "caption": "Stopped: RIC, ALB · Turn 3, Esses"
+  }
+}

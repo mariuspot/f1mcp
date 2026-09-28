@@ -369,5 +369,71 @@
       "position": [-4130.1, -2877.1],
       "angle": 1.09
     }
+  ],
+  "marshal_sectors": [
+    {
+      "number": 1,
+      "position": [-3277, -6782.3]
+    },
+    {
+      "number": 2,
+      "position": [-2651.3, -8407.4]
+    },
+    {
+      "number": 3,
+      "position": [500.7, -7922.2]
+    },
+    {
+      "number": 4,
+      "position": [1632.9, -4500.6]
+    },
+    {
+      "number": 5,
+      "position": [2405, -1479]
+    },
+    {
+      "number": 6,
+      "position": [-581, -2072.3]
+    },
+    {
+      "number": 7,
+      "position": [-2553.2, -4083]
+    },
+    {
+      "number": 8,
+      "position": [-3575.3, -2891.8]
+    },
+    {
+      "number": 9,
+      "position": [-2938.2, -2183.6]
+    },
+    {
+      "number": 10,
+      "position": [-2778.3, -1042.9]
+    },
+    {
+      "number": 11,
+      "position": [-2398.6, -232.3]
+    },
+    {
+      "number": 12,
+      "position": [-291.5, 172.9]
+    },
+    {
+      "number": 13,
+      "position": [-529.7, 1825.9]
+    },
+    {
+      "number": 14,
+      "position": [-2985.3, 1140.1]
+    },
+    {
+      "number": 15,
+      "position": [-3896.5, -673.5]
+    },
+    {
+      "number": 16,
+      "position": [-3946.7, -4138.7]
+    }
   ]
 }

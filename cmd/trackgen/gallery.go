@@ -32,17 +32,37 @@ func (g galleryLayout) Named() int {
 	return n
 }
 
-// writeGallery writes index.html listing every layout, and an index.html in
-// each layout's directory showing its map and corners.
-func writeGallery(out string, layouts []galleryLayout) error {
+// galleryIncident is one rendered incident.
+type galleryIncident struct {
+	Dir        string // directory the images are in, relative to the gallery
+	CornerFile string // close-up image, if any
+	Incident   Incident
+	Track      *tracks.Track
+}
+
+// writeGallery writes index.html listing every layout and incident, and an
+// index.html in each of their directories.
+func writeGallery(out string, layouts []galleryLayout, incidents []galleryIncident) error {
 	slices.SortFunc(layouts, func(a, b galleryLayout) int {
 		return strings.Compare(a.Track.Name+a.Years, b.Track.Name+b.Years)
 	})
-	if err := writeTemplate(filepath.Join(out, "index.html"), indexTmpl, layouts); err != nil {
+	slices.SortFunc(incidents, func(a, b galleryIncident) int {
+		return strings.Compare(b.Incident.Name, a.Incident.Name)
+	})
+	index := struct {
+		Layouts   []galleryLayout
+		Incidents []galleryIncident
+	}{layouts, incidents}
+	if err := writeTemplate(filepath.Join(out, "index.html"), indexTmpl, index); err != nil {
 		return err
 	}
 	for _, l := range layouts {
 		if err := writeTemplate(filepath.Join(out, l.Dir, "index.html"), layoutTmpl, l); err != nil {
+			return err
+		}
+	}
+	for _, inc := range incidents {
+		if err := writeTemplate(filepath.Join(out, inc.Dir, "index.html"), incidentTmpl, inc); err != nil {
 			return err
 		}
 	}
@@ -101,15 +121,50 @@ var indexTmpl = template.Must(template.New("index").Parse(`<!doctype html>
 <main>
 <header>
 <h1>F1 track maps</h1>
-<p>{{len .}} circuit layouts, with timing sectors, kerbs, start/finish line and every corner.</p>
+<p>{{len .Layouts}} circuit layouts, with timing sectors, kerbs, start/finish line, elevation and every corner.</p>
 </header>
+{{if .Incidents}}<h2>Incidents</h2>
 <div class="grid">
-{{range .}}<a class="card" href="{{.Dir}}/">
+{{range .Incidents}}<a class="card" href="{{.Dir}}/">
+<img src="{{.Dir}}/map.png" alt="Map of {{.Incident.Session}}" loading="lazy">
+<div class="info"><div class="title">{{.Incident.Session}} {{.Incident.Year}}</div>
+<div class="muted">{{.Incident.Overlay.Banner}}</div>
+<div class="muted">{{.Incident.Overlay.Caption}}</div></div>
+</a>
+{{end}}</div>
+<h2>Circuits</h2>{{end}}
+<div class="grid">
+{{range .Layouts}}<a class="card" href="{{.Dir}}/">
 <img src="{{.Dir}}/map.png" alt="Map of {{.Track.Name}}" loading="lazy">
 <div class="info"><div class="title">{{.Track.Name}}</div>
 <div class="muted">{{.Track.Locality}}, {{.Track.Country}} · {{.Years}} · {{len .Track.Corners}} turns</div></div>
 </a>
 {{end}}</div>
+` + galleryFooter + `
+</main>
+</body>
+</html>
+`))
+
+var incidentTmpl = template.Must(template.New("incident").Parse(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Incident.Session}} {{.Incident.Year}} · F1 track maps</title>
+<style>` + galleryCSS + `</style>
+</head>
+<body>
+<main>
+<a class="back" href="../../">← All circuits and incidents</a>
+<header>
+<h1>{{.Incident.Session}} {{.Incident.Year}}</h1>
+<p>{{.Incident.Overlay.Banner}}</p>
+<p>{{.Incident.Overlay.Caption}}</p>
+</header>
+<a href="map.png"><img class="map" src="map.png" alt="Map of the incident"></a>
+{{if .CornerFile}}<h2>Close-up</h2>
+<a href="{{.CornerFile}}"><img class="map" src="{{.CornerFile}}" alt="Close-up of the incident"></a>{{end}}
 ` + galleryFooter + `
 </main>
 </body>

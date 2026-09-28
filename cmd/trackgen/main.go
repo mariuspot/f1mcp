@@ -2,6 +2,7 @@
 // and preview images of them.
 //
 //	go run ./cmd/trackgen fetch   # download missing layouts, then fix up all stored ones
+//	go run ./cmd/trackgen incident -session 9523  # store the incident behind a red flag
 //	go run ./cmd/trackgen render  # write map and corner images into assets/tracks
 //
 // Layouts come from MultiViewer's circuit API, keyed by OpenF1's circuit_key,
@@ -9,8 +10,8 @@
 // downloaded; use -only or -force to re-fetch. Circuit IDs come from Jolpica,
 // matched to OpenF1 race sessions by start time. Start/finish and sector
 // lines are measured once per circuit from OpenF1 timing and car positions,
-// and stored in cmd/trackgen/lines.json. One lap of car positions per circuit,
-// stored in cmd/trackgen/elevation, gives each track its elevation profile.
+// and stored in cmd/trackgen/data/lines.json. One lap of car positions per circuit,
+// stored in cmd/trackgen/data/elevation, gives each track its elevation profile.
 //
 // Run render after fetch as a separate command so it picks up the new
 // embedded data.
@@ -22,6 +23,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -38,8 +40,8 @@ func main() {
 		from := fs.Int("from", 2023, "first season")
 		to := fs.Int("to", time.Now().Year(), "last season")
 		dir := fs.String("dir", "internal/tracks/data/circuits", "track files directory")
-		linesFile := fs.String("lines", "cmd/trackgen/lines.json", "stored timing lines")
-		elevationDir := fs.String("elevation", "cmd/trackgen/elevation", "stored elevation laps")
+		linesFile := fs.String("lines", "cmd/trackgen/data/lines.json", "stored timing lines")
+		elevationDir := fs.String("elevation", "cmd/trackgen/data/elevation", "stored elevation laps")
 		force := fs.Bool("force", false, "re-fetch every layout and timing line")
 		only := fs.String("only", "", "comma-separated circuit IDs to re-fetch")
 		fs.Parse(args)
@@ -52,11 +54,26 @@ func main() {
 		if err := fetch(ctx, o); err != nil {
 			log.Fatal(err)
 		}
+	case "incident":
+		fs := flag.NewFlagSet("incident", flag.ExitOnError)
+		session := fs.Int("session", 0, "OpenF1 session key")
+		event := fs.String("event", "red", "what to find the cause of: red, sc, vsc or yellow")
+		lap := fs.Int("lap", 0, "use the first event at or after this lap")
+		drivers := fs.String("drivers", "", "comma-separated car numbers involved, marked where they were")
+		dir := fs.String("dir", "cmd/trackgen/data/incidents", "stored incidents")
+		fs.Parse(args)
+		if *session == 0 {
+			usage()
+		}
+		if err := findIncident(ctx, *session, *event, *lap, carNumbers(*drivers), *dir); err != nil {
+			log.Fatal(err)
+		}
 	case "render":
 		fs := flag.NewFlagSet("render", flag.ExitOnError)
 		out := fs.String("out", "assets/tracks", "output directory")
+		incidents := fs.String("incidents", "cmd/trackgen/data/incidents", "stored incidents")
 		fs.Parse(args)
-		if err := render(*out); err != nil {
+		if err := render(*out, *incidents); err != nil {
 			log.Fatal(err)
 		}
 	default:
@@ -64,7 +81,17 @@ func main() {
 	}
 }
 
+func carNumbers(s string) []int {
+	var out []int
+	for f := range strings.SplitSeq(s, ",") {
+		if n, err := strconv.Atoi(strings.TrimSpace(f)); err == nil {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: trackgen fetch [-from 2023] [-to YEAR] [-only IDS] [-force]\n       trackgen render [-out DIR]")
+	fmt.Fprintln(os.Stderr, "usage: trackgen fetch [-from 2023] [-to YEAR] [-only IDS] [-force]\n       trackgen incident -session KEY [-event red|sc|vsc|yellow] [-lap N] [-drivers N,N]\n       trackgen render [-out DIR]")
 	os.Exit(2)
 }

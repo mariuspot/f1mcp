@@ -1,0 +1,12 @@
+{
+  "name": "albert_park-2023-race-lap-8-red-flag",
+  "circuit_id": "albert_park",
+  "year": 2023,
+  "session_key": 7787,
+  "session": "Australian Grand Prix · Race",
+  "corner": 0,
+  "overlay": {
+    "banner": "RED FLAG · Race · Lap 8 · 05:17 UTC",
+    "banner_color": "#E10600"
+  }
+}

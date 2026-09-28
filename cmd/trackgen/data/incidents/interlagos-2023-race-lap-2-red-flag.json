@@ -1,0 +1,20 @@
+{
+  "name": "interlagos-2023-race-lap-2-red-flag",
+  "circuit_id": "interlagos",
+  "year": 2023,
+  "session_key": 9205,
+  "session": "São Paulo Grand Prix · Race",
+  "corner": 1,
+  "overlay": {
+    "markers": [
+      {
+        "position": [-2881, -7433],
+        "label": "RIC",
+        "color": "5E8FAA"
+      }
+    ],
+    "banner": "RED FLAG · Race · Lap 2 · 17:06 UTC",
+    "banner_color": "#E10600",
+    "caption": "Stopped: RIC · Tribunas, between turns 15 and 1"
+  }
+}

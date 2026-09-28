@@ -57,7 +57,15 @@ make tracks-fetch    # download layouts that aren't stored yet, then fix up all 
 make tracks-render   # draw maps, corner images and the HTML gallery into assets/tracks
 ```
 
-`fetch` only downloads what's missing. Use `go run ./cmd/trackgen fetch -only monaco,spa` to re-fetch specific circuits, or `-force` for everything. Start/finish and sector lines are measured once per circuit from OpenF1 timing and car positions, and stored in `cmd/trackgen/lines.json`. Elevation comes from one lap of OpenF1 car positions per circuit, stored in `cmd/trackgen/elevation/`. Rendered images are not committed.
+`fetch` only downloads what's missing. Use `go run ./cmd/trackgen fetch -only monaco,spa` to re-fetch specific circuits, or `-force` for everything. Start/finish and sector lines are measured once per circuit from OpenF1 timing and car positions, and stored in `cmd/trackgen/data/lines.json`. Elevation comes from one lap of OpenF1 car positions per circuit, stored in `cmd/trackgen/data/elevation/`. Rendered images are not committed.
+
+Incidents (red flags, safety cars, yellow flags) can be stored and drawn on the maps too:
+
+```sh
+go run ./cmd/trackgen incident -session 11377 -event sc -lap 36   # store what caused a safety car
+```
+
+It works out the flagged marshal sectors and the cars that stopped or slowed from OpenF1 data, and saves the result in `cmd/trackgen/data/incidents/`; `make tracks-render` then adds it to the gallery.
 
 Corner and straight names live in `internal/tracks/data/names.json`, keyed by circuit. A corner can be a single turn (`"9": "Copse"`), a complex sharing one name (`"10-13": "Maggotts and Becketts"`), or have an alternative name (`"17": {"name": "Mansell Corner", "alt": "Peraltada"}`). Straights are named by the turns at each end. Names are taken from each circuit's Wikipedia article.
 

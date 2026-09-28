@@ -64,6 +64,7 @@ type MeetingsFilter struct {
 type SessionsFilter struct {
 	Year        int
 	MeetingKey  string
+	SessionKey  string
 	SessionName string
 }
 
@@ -101,6 +102,7 @@ func (c *Client) Sessions(ctx context.Context, f SessionsFilter) ([]Session, err
 	var q query
 	q.int("year", f.Year)
 	q.str("meeting_key", f.MeetingKey)
+	q.str("session_key", f.SessionKey)
 	q.str("session_name", f.SessionName)
 	return get[Session](ctx, c, "/sessions", q)
 }

@@ -56,7 +56,8 @@ func fetch(ctx context.Context, o fetchOptions) error {
 	for _, r := range races {
 		id := r.race.Circuit.CircuitID
 		file := filepath.Join(o.dir, tracks.FileName(id, r.year))
-		if _, err := os.Stat(file); err == nil && !o.refetch(id) {
+		stored, err := readTrack(file)
+		if err == nil && !o.refetch(id) && len(stored.MarshalSectors) > 0 {
 			continue
 		}
 		mv, err := fetchMultiviewer(ctx, httpClient, r.session.CircuitKey, r.year)
@@ -65,6 +66,15 @@ func fetch(ctx context.Context, o fetchOptions) error {
 			continue
 		}
 		time.Sleep(500 * time.Millisecond) // be polite to MultiViewer
+		if stored != nil && !o.refetch(id) {
+			// Stored before marshal sectors were kept: add them only.
+			stored.MarshalSectors = marshalSectors(mv)
+			if err := writeTrack(file, stored); err != nil {
+				return err
+			}
+			log.Printf("%d %-15s added %d marshal sectors", r.year, id, len(stored.MarshalSectors))
+			continue
+		}
 		t := toTrack(r.race, r.session.CircuitKey, r.year, mv)
 		if err := writeTrack(file, &t); err != nil {
 			return err
@@ -233,6 +243,24 @@ type multiviewerCircuit struct {
 			Y float64 `json:"y"`
 		} `json:"trackPosition"`
 	} `json:"corners"`
+	MarshalSectors []struct {
+		Number        int `json:"number"`
+		TrackPosition struct {
+			X float64 `json:"x"`
+			Y float64 `json:"y"`
+		} `json:"trackPosition"`
+	} `json:"marshalSectors"`
+}
+
+func marshalSectors(mv *multiviewerCircuit) []tracks.MarshalSector {
+	var out []tracks.MarshalSector
+	for _, m := range mv.MarshalSectors {
+		out = append(out, tracks.MarshalSector{
+			Number:   m.Number,
+			Position: tracks.Point{round(m.TrackPosition.X, 1), round(m.TrackPosition.Y, 1)},
+		})
+	}
+	return out
 }
 
 func fetchMultiviewer(ctx context.Context, c *http.Client, circuitKey, year int) (*multiviewerCircuit, error) {
@@ -280,6 +308,7 @@ func toTrack(r jolpica.Race, circuitKey, year int, mv *multiviewerCircuit) track
 			Angle:    round(c.Angle, 2),
 		})
 	}
+	t.MarshalSectors = marshalSectors(mv)
 	return t
 }
 

@@ -816,5 +816,79 @@
       "position": [-552.8, -2803.7],
       "angle": -169.06
     }
+  ],
+  "marshal_sectors": [
+    {
+      "number": 1,
+      "position": [-393.2, 1019.2]
+    },
+    {
+      "number": 2,
+      "position": [-175.1, 6721.3]
+    },
+    {
+      "number": 3,
+      "position": [2029.3, 8072.5]
+    },
+    {
+      "number": 4,
+      "position": [5938, 7370.2]
+    },
+    {
+      "number": 5,
+      "position": [6513.7, 5653.4]
+    },
+    {
+      "number": 6,
+      "position": [5440.1, 4352.9]
+    },
+    {
+      "number": 7,
+      "position": [3822, 3945]
+    },
+    {
+      "number": 8,
+      "position": [2911, 2694.8]
+    },
+    {
+      "number": 9,
+      "position": [2442.8, 3827.1]
+    },
+    {
+      "number": 10,
+      "position": [2738.5, 5781.6]
+    },
+    {
+      "number": 11,
+      "position": [1949.5, 6521.6]
+    },
+    {
+      "number": 12,
+      "position": [1518, 158.4]
+    },
+    {
+      "number": 13,
+      "position": [3148.5, -112.1]
+    },
+    {
+      "number": 14,
+      "position": [3614.8, 837.9]
+    },
+    {
+      "number": 15,
+      "position": [6110.8, 1147.6]
+    },
+    {
+      "number": 16,
+      "position": [5307.3, -678.3]
+    },
+    {
+      "number": 17,
+      "position": [1046, -3048.4]
+    },
+    {
+      "number": 18,
+      "position": [-564.9, -2112.8]
+    }
   ]
 }

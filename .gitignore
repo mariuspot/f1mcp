@@ -13,7 +13,6 @@ bin/
 
 # Track images, regenerated with `make tracks-render`
 assets/tracks/
-assets/incidents/
 
 # Test binary, built with `go test -c`
 *.test
