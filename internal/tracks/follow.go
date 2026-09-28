@@ -34,6 +34,7 @@ func RenderLapFollow(t *Track, laps []LapTrace, o Options, sink func(*image.RGBA
 	if len(laps) == 0 {
 		return fmt.Errorf("no laps to draw")
 	}
+	laps = smoothLaps(t, laps)
 	scale := float64(cornerHeight-header) / (2 * cornerRadius)
 	big, p := drawBigTrack(t, scale, o)
 

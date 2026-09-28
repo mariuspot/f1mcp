@@ -25,6 +25,10 @@ type LapTrace struct {
 	Positions [][3]float64 `json:"positions"`
 	// Telemetry is [t, speed km/h, throttle %, brake %, gear].
 	Telemetry [][5]float64 `json:"telemetry"`
+
+	// distances, when set by smoothLap, is the exact distance round the lap
+	// of each position, in metres.
+	distances []float64
 }
 
 const (
@@ -46,6 +50,7 @@ func RenderLapGIF(t *Track, laps []LapTrace, o Options) (*gif.GIF, error) {
 	if len(laps) == 0 {
 		return nil, fmt.Errorf("no laps to draw")
 	}
+	laps = smoothLaps(t, laps)
 	full, err := Render(t, o)
 	if err != nil {
 		return nil, err
@@ -230,6 +235,9 @@ func (l LapTrace) telemetry(T float64) [5]float64 {
 // lapProgress returns the distance round the lap, in metres, of each of a
 // lap's positions, never going backwards.
 func lapProgress(t *Track, l LapTrace, dist []float64, lap float64) []float64 {
+	if len(l.distances) == len(l.Positions) {
+		return l.distances
+	}
 	out := make([]float64, len(l.Positions))
 	furthest := 0.0
 	for i, s := range l.Positions {
@@ -519,4 +527,95 @@ func drawLapHUD(dc *gg.Context, laps []LapTrace, progress [][]float64, T float64
 func formatLapTime(s float64) string {
 	m := int(s) / 60
 	return fmt.Sprintf("%d:%06.3f", m, s-float64(m*60))
+}
+
+// smoothLaps replaces each lap's positions with ones worked out from its
+// speed, which OpenF1 samples much more cleanly than position: the distance
+// travelled is the running total of speed × time, scaled to exactly one lap
+// so it can't drift, and each car is placed on the track outline at that
+// distance. With several drivers each is set a little to its own side of
+// the line so they don't sit on top of each other.
+func smoothLaps(t *Track, laps []LapTrace) []LapTrace {
+	dist, lap := lapDistances(t.Outline)
+	out := make([]LapTrace, len(laps))
+	for i, l := range laps {
+		lateral := 0.0
+		if len(laps) > 1 {
+			lateral = 25 * (float64(i)*2 - float64(len(laps)-1)) // decimetres
+		}
+		out[i] = smoothLap(t, l, dist, lap, lateral)
+	}
+	return out
+}
+
+func smoothLap(t *Track, l LapTrace, dist []float64, lap, lateral float64) LapTrace {
+	// Speed against time from the start of the lap to its end.
+	var ts, vs []float64
+	for _, s := range l.Telemetry {
+		if s[0] >= 0 && s[0] <= l.Duration {
+			ts, vs = append(ts, s[0]), append(vs, s[1]/3.6) // m/s
+		}
+	}
+	if len(ts) < 10 {
+		return l
+	}
+	ts, vs = append([]float64{0}, ts...), append([]float64{vs[0]}, vs...)
+	ts, vs = append(ts, l.Duration), append(vs, vs[len(vs)-1])
+
+	// Distance travelled, scaled to one lap.
+	ds := make([]float64, len(ts))
+	for i := 1; i < len(ts); i++ {
+		ds[i] = ds[i-1] + (vs[i-1]+vs[i])/2*(ts[i]-ts[i-1])
+	}
+	scale := lap / ds[len(ds)-1]
+	for i := range ds {
+		ds[i] *= scale
+	}
+
+	const step = 0.05
+	s := l
+	s.Positions, s.distances = nil, nil
+	for T := 0.0; T <= l.Duration+step/2; T += step {
+		T := min(T, l.Duration)
+		k := sort.SearchFloat64s(ts, T)
+		d := ds[len(ds)-1]
+		if k < len(ts) {
+			if k == 0 {
+				d = 0
+			} else {
+				f := (T - ts[k-1]) / max(ts[k]-ts[k-1], 1e-9)
+				d = ds[k-1] + f*(ds[k]-ds[k-1])
+			}
+		}
+		pt := pointAtDistance(t, dist, lap, d, lateral)
+		s.Positions = append(s.Positions, [3]float64{T, pt[0], pt[1]})
+		s.distances = append(s.distances, d)
+	}
+	return s
+}
+
+// pointAtDistance returns the point d metres round the lap along the
+// outline, shifted sideways by lateral track units (positive is right of
+// travel in track coordinates).
+func pointAtDistance(t *Track, dist []float64, lap, d, lateral float64) Point {
+	n := len(t.Outline)
+	d = math.Mod(d, lap)
+	if d < 0 {
+		d += lap
+	}
+	i := sort.SearchFloat64s(dist, d) - 1
+	i = max(i, 0)
+	a, b := t.Outline[i], t.Outline[(i+1)%n]
+	segEnd := lap
+	if i+1 < n {
+		segEnd = dist[i+1]
+	}
+	f := (d - dist[i]) / max(segEnd-dist[i], 1e-9)
+	x, y := a[0]+f*(b[0]-a[0]), a[1]+f*(b[1]-a[1])
+	dx, dy := b[0]-a[0], b[1]-a[1]
+	if l := math.Hypot(dx, dy); l > 0 && lateral != 0 {
+		// Right of travel in track coordinates (y up) is (dy, -dx).
+		x, y = x+dy/l*lateral, y-dx/l*lateral
+	}
+	return Point{x, y}
 }
