@@ -1,22 +1,26 @@
-// Package tools defines the MCP tools exposed by f1mcp.
+// Package tools defines the MCP tools exposed by f1mcp. Each tool is a thin
+// wrapper over the f1 service, which hides where the data comes from.
 package tools
 
 import (
-	"context"
-	"errors"
-
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/mariuspot/f1mcp/internal/f1"
 )
 
 // Register adds all tools to s.
-func Register(s *mcp.Server) {
-	registerJolpica(s)
-	registerOpenF1(s)
+func Register(s *mcp.Server, svc *f1.Service) {
+	registerSeason(s, svc)
 }
 
-var errNotImplemented = errors.New("not implemented")
+// Arguments shared by several tools.
 
-// notImplemented is a placeholder handler for scaffolded tools.
-func notImplemented[In any](context.Context, *mcp.CallToolRequest, In) (*mcp.CallToolResult, any, error) {
-	return nil, nil, errNotImplemented
+type EventArgs struct {
+	Year  int    `json:"year,omitempty" jsonschema:"season, e.g. 2024; defaults to the current season"`
+	Round string `json:"round,omitempty" jsonschema:"round number, 'last' (default), 'next', or part of the event, circuit, city or country name, e.g. 'Monaco' or 'Spa'"`
+}
+
+type SessionArgs struct {
+	EventArgs
+	Session string `json:"session,omitempty" jsonschema:"race (default), qualifying, sprint, sprint_qualifying, fp1, fp2 or fp3"`
 }
