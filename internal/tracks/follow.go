@@ -97,6 +97,9 @@ func RenderLapFollow(t *Track, laps []LapTrace, o Options, sink func(*image.RGBA
 		pc.ox -= float64(crop.X)
 		pc.oy -= float64(crop.Y)
 		dc := gg.NewContextForRGBA(frame)
+		for _, l := range laps {
+			drawTrail(dc, pc, l, min(T, l.Duration))
+		}
 		if o.LapEvents {
 			for i, l := range laps {
 				drawLapEvents(dc, pc, l, events[i], min(T, l.Duration), i, len(laps), outward)

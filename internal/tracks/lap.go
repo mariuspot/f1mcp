@@ -102,6 +102,9 @@ func RenderLapGIF(t *Track, laps []LapTrace, o Options) (*gif.GIF, error) {
 		frame := image.NewRGBA(base.Bounds())
 		copy(frame.Pix, base.Pix)
 		dc := gg.NewContextForRGBA(frame)
+		for _, l := range laps {
+			drawTrail(dc, p, l, min(T, l.Duration))
+		}
 		if o.LapEvents {
 			for i, l := range laps {
 				drawLapEvents(dc, p, l, events[i], min(T, l.Duration), i, len(laps), outward)
@@ -281,10 +284,8 @@ func timeAt(l LapTrace, prog []float64, d float64) float64 {
 	return l.Duration
 }
 
-// drawCar draws a car at lap time T with a fading trail behind it, and
-// returns where it drew it. Its label moves down if a car already drawn is
-// close by.
-func drawCar(dc *gg.Context, p projection, l LapTrace, T float64, others [][2]float64) [2]float64 {
+// drawTrail draws the fading trail behind a car at lap time T.
+func drawTrail(dc *gg.Context, p projection, l LapTrace, T float64) {
 	c := hexColor(hex(l.Color))
 	const steps = 15
 	dc.SetLineCap(gg.LineCapRound)
@@ -302,6 +303,12 @@ func drawCar(dc *gg.Context, p projection, l LapTrace, T float64, others [][2]fl
 		dc.DrawLine(x0, y0, x1, y1)
 		dc.Stroke()
 	}
+}
+
+// drawCar draws a car at lap time T and returns where it drew it. Its label
+// moves down if a car already drawn is close by.
+func drawCar(dc *gg.Context, p projection, l LapTrace, T float64, others [][2]float64) [2]float64 {
+	c := hexColor(hex(l.Color))
 	x, y := p.point(l.position(T))
 	dc.SetHexColor(textColor)
 	dc.DrawCircle(x, y, 8)
@@ -360,15 +367,16 @@ func (l LapTrace) events() []lapEvent {
 	return out
 }
 
-// drawLapEvents marks where a car braked (red along the track) and changed
-// gear, up to lap time T. The braking speed and new gear are drawn off the
-// track, each joined to its point by a thin line: on the driver's own side
-// with several drivers, else on outward (+1 right, -1 left of travel).
+// drawLapEvents marks where a car braked (red along its own path, where
+// its trail is drawn) and changed gear, up to lap time T. The braking speed
+// and new gear are drawn off the track, each joined to its point by a thin
+// line: on the driver's own side with several drivers, else on outward (+1
+// right, -1 left of travel).
 func drawLapEvents(dc *gg.Context, p projection, l LapTrace, events []lapEvent, T float64, driver, drivers int, outward float64) {
-	side, dir := 0.0, outward
+	const side = 0.0 // the car's path already keeps each driver in a lane
+	dir := outward
 	if drivers > 1 {
-		side = 7 * (float64(driver)*2 - float64(drivers-1))
-		dir = math.Copysign(1, side)
+		dir = math.Copysign(1, float64(driver)*2-float64(drivers-1))
 	}
 	// at returns the point offset sideways by off pixels from the car's
 	// position at time t (positive is right of travel).
@@ -398,13 +406,21 @@ func drawLapEvents(dc *gg.Context, p projection, l LapTrace, events []lapEvent, 
 			break
 		}
 		if e.braking {
-			dc.NewSubPath()
-			for t := e.t; t <= min(e.until, T); t += 0.1 {
-				dc.LineTo(at(t, side))
+			trace := func() {
+				dc.NewSubPath()
+				for t := e.t; t <= min(e.until, T); t += 0.1 {
+					dc.LineTo(at(t, side))
+				}
 			}
-			dc.SetHexColor(kerbRed)
-			dc.SetLineWidth(5)
+			// A dark casing sets it apart from the red sector 1 edge.
 			dc.SetLineCap(gg.LineCapRound)
+			trace()
+			dc.SetHexColor("#000000")
+			dc.SetLineWidth(6)
+			dc.Stroke()
+			trace()
+			dc.SetHexColor(kerbRed)
+			dc.SetLineWidth(3.5)
 			dc.Stroke()
 
 			// Speed as braking started.
