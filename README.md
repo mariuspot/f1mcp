@@ -102,6 +102,8 @@ Driver photos and flags for the videos come from Wikimedia Commons (freely licen
 go run ./cmd/trackgen headshots -year 2026 -drivers RUS,VER
 ```
 
+Stored laps include the weather when they were driven, shown in their header. `go run ./cmd/trackgen lap -backfill-weather` adds it to laps stored before it was.
+
 Each stored lap (in `cmd/trackgen/data/laps/`) is rendered as two GIFs over the whole track (the cars with speed, gear, throttle, brake and gap; and the same with braking zones, braking speeds and gear changes left on the track) and, if `ffmpeg` is installed, a 4:5 portrait MP4 for phones with a camera that follows the car, zoomed in like the corner images, between the timing panel and an elevation profile.
 
 Corner and straight names live in `internal/tracks/data/names.json`, keyed by circuit. A corner can be a single turn (`"9": "Copse"`), a complex sharing one name (`"10-13": "Maggotts and Becketts"`), or have an alternative name (`"17": {"name": "Mansell Corner", "alt": "Peraltada"}`). Straights are named by the turns at each end. Names are taken from each circuit's Wikipedia article.

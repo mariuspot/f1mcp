@@ -14,7 +14,7 @@ const (
 	// header naming the circuit and laps, the timing band, the camera view,
 	// and the elevation profile.
 	followWidth, followHeight = 720, 900
-	followHeader              = 64
+	followHeader              = 82
 	followElevation           = 150
 	followFPS                 = 25.0
 	// followPad is extra space around the pre-drawn track, so the camera
@@ -69,6 +69,10 @@ func RenderLapFollow(t *Track, laps []LapTrace, o Options, sink func(*image.RGBA
 		bc.SetFontFace(face(regularFont, 14))
 		bc.SetHexColor(subtleColor)
 		bc.DrawString(o.Overlay.Banner, 16, 54)
+		if o.Overlay.Caption != "" {
+			bc.SetFontFace(face(regularFont, 13))
+			bc.DrawString(o.Overlay.Caption, 16, 74)
+		}
 	}
 	elev := elevationPanel{x: 12, y: followHeight - followElevation + 6, w: followWidth - 24, h: followElevation - 12}
 	drawElevation(bc, t, elev)

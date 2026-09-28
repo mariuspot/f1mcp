@@ -7,6 +7,7 @@ import (
 	"image/gif"
 	"math"
 	"sort"
+	"time"
 
 	"github.com/fogleman/gg"
 	xdraw "golang.org/x/image/draw"
@@ -15,11 +16,12 @@ import (
 // LapTrace is one driver's lap: positions and telemetry against time from
 // the start of the lap.
 type LapTrace struct {
-	Driver   string  `json:"driver"` // e.g. "NOR"
-	Number   int     `json:"number"`
-	Color    string  `json:"color"` // team colour, hex
-	Lap      int     `json:"lap"`
-	Duration float64 `json:"duration"` // lap time in seconds
+	Driver   string    `json:"driver"` // e.g. "NOR"
+	Number   int       `json:"number"`
+	Color    string    `json:"color"` // team colour, hex
+	Lap      int       `json:"lap"`
+	Started  time.Time `json:"started,omitempty"` // when the lap started, UTC
+	Duration float64   `json:"duration"`          // lap time in seconds
 	// Positions are [t, x, y]: seconds from the start of the lap and track
 	// coordinates.
 	Positions [][3]float64 `json:"positions"`

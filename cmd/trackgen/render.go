@@ -116,6 +116,9 @@ func renderLaps(out string, f LapFile, headshots map[string]Headshot, headshotsD
 		}
 	}
 	o := tracks.Options{Years: strconv.Itoa(f.Year), Overlay: &tracks.Overlay{Banner: f.Session + " · " + title, BannerColor: "#2C2C3A"}}
+	if f.Weather != nil {
+		o.Overlay.Caption = f.Weather.String()
+	}
 	var g *gif.GIF
 	for _, v := range []struct {
 		file   string
