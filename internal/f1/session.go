@@ -71,6 +71,27 @@ func (sd *sessionData) driver(arg string) (int, error) {
 	return 0, fmt.Errorf("no driver %q in %d %s %s", arg, sd.Event.Year, sd.Event.Name, sd.Session)
 }
 
+// DriverNumbers returns the car numbers of drivers in an event's session,
+// each given by car number, code or name.
+func (s *Service) DriverNumbers(ctx context.Context, e Event, session string, drivers []string) ([]int, error) {
+	if len(drivers) == 0 {
+		return nil, nil
+	}
+	sd, err := s.session(ctx, e, session)
+	if err != nil {
+		return nil, err
+	}
+	var out []int
+	for _, d := range drivers {
+		n, err := sd.driver(d)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, nil
+}
+
 func (sd *sessionData) ref(number int) DriverRef {
 	if d, ok := sd.drivers[number]; ok {
 		return d

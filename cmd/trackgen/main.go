@@ -75,7 +75,7 @@ func main() {
 		drivers := fs.String("drivers", "", "comma-separated car numbers or codes, e.g. RUS,VER (default: the fastest -count drivers)")
 		count := fs.Int("count", 1, "how many of the fastest drivers' best laps to store")
 		dir := fs.String("dir", "cmd/trackgen/data/laps", "stored laps")
-		backfill := fs.Bool("backfill-weather", false, "add lap start times and weather to stored laps that lack them")
+		backfill := fs.Bool("backfill", false, "add lap start times, weather and tyres to stored laps that lack them")
 		fs.Parse(args)
 		if *backfill {
 			if err := backfillLaps(ctx, *dir); err != nil {

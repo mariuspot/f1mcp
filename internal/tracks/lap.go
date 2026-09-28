@@ -27,6 +27,10 @@ type LapTrace struct {
 	Positions [][3]float64 `json:"positions"`
 	// Telemetry is [t, speed km/h, throttle %, brake %, gear].
 	Telemetry [][5]float64 `json:"telemetry"`
+	// Compound is the tyre, e.g. "SOFT", and TyreAge the laps it had done
+	// before this one.
+	Compound string `json:"compound,omitempty"`
+	TyreAge  int    `json:"tyre_age,omitempty"`
 
 	// Headshot and Flag, if set, are drawn in the timing band: a square
 	// photo of the driver and their national flag.
@@ -54,75 +58,26 @@ func lapBandHeight(drivers int) int { return 44 + lapRowHeight*drivers }
 // each driver's speed, gear, throttle and brake. With several laps the panel
 // also shows each driver's gap to the first at the same point on the lap.
 func RenderLapGIF(t *Track, laps []LapTrace, o Options) (*gif.GIF, error) {
-	if len(laps) == 0 {
-		return nil, fmt.Errorf("no laps to draw")
-	}
-	laps = smoothLaps(t, laps)
-	full, err := Render(t, o)
+	sc, err := newLapScene(t, laps, o)
 	if err != nil {
 		return nil, err
 	}
-	// The map, scaled down, under a band for the timing panel so the panel
-	// never hides the track.
-	scale := float64(lapGIFWidth) / float64(full.Bounds().Dx())
-	band := lapBandHeight(len(laps))
-	h := int(float64(full.Bounds().Dy())*scale) + band
-	base := image.NewRGBA(image.Rect(0, 0, lapGIFWidth, h))
-	for i := 0; i < len(base.Pix); i += 4 {
-		c := hexColor(bgColor)
-		base.Pix[i], base.Pix[i+1], base.Pix[i+2], base.Pix[i+3] = c.R, c.G, c.B, 255
-	}
-	xdraw.CatmullRom.Scale(base, image.Rect(0, band, lapGIFWidth, h), full, full.Bounds(), xdraw.Src, nil)
-
-	p := mapProjection(t)
-	p.scale, p.ox, p.oy = p.scale*scale, p.ox*scale, p.oy*scale+float64(band)
-
-	outward := -insideSide(p, t.Outline)
-	pal := lapPalette(laps)
+	pal := lapPalette(sc.laps)
 	// A transparent entry, used for pixels unchanged since the last frame.
 	withClear := append(append(color.Palette{}, pal...), color.RGBA{})
 	clear := uint8(len(pal))
-	dist, lap := lapDistances(t.Outline)
-	progress := make([][]float64, len(laps))
-	for i, l := range laps {
-		progress[i] = lapProgress(t, l, dist, lap)
-	}
-
-	longest := 0.0
-	events := make([][]lapEvent, len(laps))
-	for i, l := range laps {
-		longest = max(longest, l.Duration)
-		events[i] = l.events()
-	}
 	step := lapSpeedUp * float64(lapFrameDelay) / 100
 
 	g := &gif.GIF{}
 	var prev *image.Paletted
 	cache := map[color.RGBA]uint8{}
 	for T := 0.0; ; T += step {
-		T = min(T, longest)
-		frame := image.NewRGBA(base.Bounds())
-		copy(frame.Pix, base.Pix)
-		dc := gg.NewContextForRGBA(frame)
-		for _, l := range laps {
-			drawTrail(dc, p, l, min(T, l.Duration))
-		}
-		if o.LapEvents {
-			for i, l := range laps {
-				drawLapEvents(dc, p, l, events[i], min(T, l.Duration), i, len(laps), outward)
-			}
-		}
-		var placed [][2]float64
-		for _, l := range laps {
-			placed = append(placed, drawCar(dc, p, l, min(T, l.Duration), placed))
-		}
-		drawElevationDots(dc, t, laps, progress, dist, lap, T, scale, float64(band))
-		drawLapHUD(dc, laps, progress, T, 0, float64(dc.Width())-16)
-
+		T = min(T, sc.longest)
+		frame := sc.frame(T)
 		pf := quantize(frame, withClear[:len(pal)], cache)
 		pf.Palette = withClear
 		delay := lapFrameDelay
-		if T >= longest {
+		if T >= sc.longest {
 			delay = int(lapHold * 100)
 		}
 		if prev == nil {
@@ -150,11 +105,96 @@ func RenderLapGIF(t *Track, laps []LapTrace, o Options) (*gif.GIF, error) {
 		g.Delay = append(g.Delay, delay)
 		g.Disposal = append(g.Disposal, gif.DisposalNone)
 		prev = pf
-		if T >= longest {
+		if T >= sc.longest {
 			break
 		}
 	}
 	return g, nil
+}
+
+// RenderLapStill draws the last frame of RenderLapGIF in full colour: each
+// car at the line with the trail of its last seconds, the lap times and
+// gaps, and with LapEvents, where each car braked and changed gear.
+func RenderLapStill(t *Track, laps []LapTrace, o Options) (image.Image, error) {
+	sc, err := newLapScene(t, laps, o)
+	if err != nil {
+		return nil, err
+	}
+	return sc.frame(sc.longest), nil
+}
+
+// lapScene is what every frame of a lap animation is drawn from.
+type lapScene struct {
+	t        *Track
+	o        Options
+	laps     []LapTrace
+	base     *image.RGBA // the map under the timing band
+	p        projection
+	scale    float64
+	band     int
+	outward  float64
+	dist     []float64
+	lap      float64
+	progress [][]float64
+	events   [][]lapEvent
+	longest  float64
+}
+
+func newLapScene(t *Track, laps []LapTrace, o Options) (*lapScene, error) {
+	if len(laps) == 0 {
+		return nil, fmt.Errorf("no laps to draw")
+	}
+	sc := &lapScene{t: t, o: o, laps: smoothLaps(t, laps)}
+	full, err := Render(t, o)
+	if err != nil {
+		return nil, err
+	}
+	// The map, scaled down, under a band for the timing panel so the panel
+	// never hides the track.
+	sc.scale = float64(lapGIFWidth) / float64(full.Bounds().Dx())
+	sc.band = lapBandHeight(len(laps))
+	h := int(float64(full.Bounds().Dy())*sc.scale) + sc.band
+	sc.base = image.NewRGBA(image.Rect(0, 0, lapGIFWidth, h))
+	for i := 0; i < len(sc.base.Pix); i += 4 {
+		c := hexColor(bgColor)
+		sc.base.Pix[i], sc.base.Pix[i+1], sc.base.Pix[i+2], sc.base.Pix[i+3] = c.R, c.G, c.B, 255
+	}
+	xdraw.CatmullRom.Scale(sc.base, image.Rect(0, sc.band, lapGIFWidth, h), full, full.Bounds(), xdraw.Src, nil)
+
+	sc.p = mapProjection(t)
+	sc.p.scale, sc.p.ox, sc.p.oy = sc.p.scale*sc.scale, sc.p.ox*sc.scale, sc.p.oy*sc.scale+float64(sc.band)
+	sc.outward = -insideSide(sc.p, t.Outline)
+	sc.dist, sc.lap = lapDistances(t.Outline)
+	sc.progress = make([][]float64, len(sc.laps))
+	sc.events = make([][]lapEvent, len(sc.laps))
+	for i, l := range sc.laps {
+		sc.progress[i] = lapProgress(t, l, sc.dist, sc.lap)
+		sc.longest = max(sc.longest, l.Duration)
+		sc.events[i] = l.events()
+	}
+	return sc, nil
+}
+
+// frame draws the scene T seconds into the lap.
+func (sc *lapScene) frame(T float64) *image.RGBA {
+	frame := image.NewRGBA(sc.base.Bounds())
+	copy(frame.Pix, sc.base.Pix)
+	dc := gg.NewContextForRGBA(frame)
+	for _, l := range sc.laps {
+		drawTrail(dc, sc.p, l, min(T, l.Duration))
+	}
+	if sc.o.LapEvents {
+		for i, l := range sc.laps {
+			drawLapEvents(dc, sc.p, l, sc.events[i], min(T, l.Duration), i, len(sc.laps), sc.outward)
+		}
+	}
+	var placed [][2]float64
+	for _, l := range sc.laps {
+		placed = append(placed, drawCar(dc, sc.p, l, min(T, l.Duration), placed))
+	}
+	drawElevationDots(dc, sc.t, sc.laps, sc.progress, sc.dist, sc.lap, T, sc.scale, float64(sc.band))
+	drawLapHUD(dc, sc.laps, sc.progress, T, 0, float64(dc.Width())-16)
+	return frame
 }
 
 // lapPalette is the track palette plus the drivers' team colours and the
@@ -168,6 +208,11 @@ func lapPalette(laps []LapTrace) color.Palette {
 		}
 	}
 	add(hexColor("#2ECC71"))
+	for _, l := range laps {
+		if c, ok := compoundColors[l.Compound]; ok {
+			add(hexColor(c))
+		}
+	}
 	for _, l := range laps {
 		c := hexColor(hex(l.Color))
 		add(c)
@@ -519,7 +564,7 @@ func drawLapHUD(dc *gg.Context, laps []LapTrace, progress [][]float64, T, top, r
 		// reports as on or off.
 		bw := 120.0
 		if l.Headshot != nil {
-			bw = 90
+			bw = 60
 		}
 		bx, by := x+208, ry+13
 		dc.SetFontFace(face(regularFont, 11))
@@ -541,6 +586,7 @@ func drawLapHUD(dc *gg.Context, laps []LapTrace, progress [][]float64, T, top, r
 		}
 		dc.DrawRoundedRectangle(lx, by-2, 13, 13, 3)
 		dc.Fill()
+		drawTyre(dc, l, lx+35, by+4.5)
 
 		// Gap to the first driver at the same point on the lap.
 		switch {
@@ -565,6 +611,33 @@ func drawLapHUD(dc *gg.Context, laps []LapTrace, progress [][]float64, T, top, r
 			dc.DrawStringAnchored("ref", right, ry+22, 1, 0)
 		}
 	}
+}
+
+// compoundColors are the colours of the tyre compounds' sidewall markings.
+var compoundColors = map[string]string{
+	"SOFT":         "#DA291C",
+	"MEDIUM":       "#FFD12E",
+	"HARD":         "#F0F0EC",
+	"INTERMEDIATE": "#43B02A",
+	"WET":          "#0067AD",
+}
+
+// drawTyre draws a lap's tyre centred at x, y: a ring in the compound's
+// colour with its initial, and beside it the laps the tyre had done.
+func drawTyre(dc *gg.Context, l LapTrace, x, y float64) {
+	c, ok := compoundColors[l.Compound]
+	if !ok {
+		return
+	}
+	dc.SetHexColor(c)
+	dc.SetLineWidth(3)
+	dc.DrawCircle(x, y, 9)
+	dc.Stroke()
+	dc.SetFontFace(face(boldFont, 11))
+	dc.DrawStringAnchored(l.Compound[:1], x, y, 0.5, 0.35)
+	dc.SetFontFace(face(regularFont, 12))
+	dc.SetHexColor(subtleColor)
+	dc.DrawStringAnchored(fmt.Sprint(l.TyreAge), x+14, y, 0, 0.35)
 }
 
 var (
