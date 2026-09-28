@@ -184,4 +184,8 @@ type SessionResult struct {
 	DNF          bool `json:"dnf"`
 	DNS          bool `json:"dns"`
 	DSQ          bool `json:"dsq"`
+	// Duration and GapToLeader are seconds for most sessions, a list of
+	// [Q1, Q2, Q3] for qualifying, or a string such as "+1 LAP".
+	Duration    json.RawMessage `json:"duration"`
+	GapToLeader json.RawMessage `json:"gap_to_leader"`
 }

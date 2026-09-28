@@ -4,7 +4,18 @@ An [MCP](https://modelcontextprotocol.io) server for Formula 1 data, written in 
 
 It combines two public F1 APIs behind one consistent set of tools, so the model asks for things like "the 2024 Monaco race" and never has to know which API answered or how their IDs and formats differ.
 
-> **Status: work in progress.** The server runs and registers its tools, but most tools are still stubs. The OpenF1 and Jolpica clients and track map generation are done; shared types and tools are next.
+> **Status: work in progress.** The season tools work; session detail (2023 onward) and track and visual tools are next.
+
+## Tools
+
+| Tool | What it answers |
+|---|---|
+| `get_schedule` | A season's calendar: rounds, circuits, session start times (UTC), sprint weekends |
+| `get_session_results` | A session's classification: race and sprint results, qualifying Q1–Q3, practice best laps |
+| `get_standings` | Drivers' or teams' championship after any round |
+| `list_drivers` | Drivers in a season or event, with team, number, and from 2023 team colour and a headshot link |
+
+Events are chosen by `year` and `round`: a number, `last`, `next`, or part of the event, circuit, city or country name (`"Monaco"`, `"Spa"`). Times and gaps are in seconds.
 
 ## What it covers
 
@@ -46,7 +57,11 @@ The server speaks MCP over stdio. To add it to Claude Code:
 claude mcp add f1mcp -- docker run --rm -i f1mcp:dev
 ```
 
-For other clients, configure the command `docker run --rm -i f1mcp:dev`.
+For other clients, configure the command `docker run --rm -i f1mcp:dev`. To serve over streamable HTTP instead of stdio:
+
+```sh
+docker run --rm -p 8080:8080 f1mcp:dev -transport http
+```
 
 ### Track data
 
@@ -98,6 +113,7 @@ go test ./internal/openf1 ./internal/jolpica -update -count=1
 cmd/f1mcp/          server entrypoint
 internal/server/    builds the MCP server
 internal/tools/     MCP tool definitions
+internal/f1/        answers in one shape from both APIs: events, sessions, results, caching
 internal/openf1/    OpenF1 API client
 internal/jolpica/   Jolpica API client
 internal/golden/    golden-file helper for client tests
