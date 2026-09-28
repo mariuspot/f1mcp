@@ -426,9 +426,45 @@ func drawInset(dc *gg.Context, t *Track, c Corner) {
 	dc.SetLineWidth(3)
 	dc.Stroke()
 
+	drawInsetStart(dc, p, t.Outline)
+
 	cx, cy := p.point(c.Position)
 	dc.SetHexColor(kerbRed)
 	dc.DrawCircle(cx, cy, 8)
+	dc.Fill()
+}
+
+// drawInsetStart marks the start/finish line on the inset map with a bar
+// across the track and an arrow beside it showing the direction of travel.
+func drawInsetStart(dc *gg.Context, p projection, outline []Point) {
+	x0, y0 := p.point(outline[0])
+	x1, y1 := p.point(outline[min(3, len(outline)-1)])
+	dx, dy := x1-x0, y1-y0
+	l := math.Hypot(dx, dy)
+	if l == 0 {
+		return
+	}
+	dx, dy = dx/l, dy/l
+	nx, ny := -dy, dx
+
+	const half = 9.0
+	dc.SetLineCap(gg.LineCapButt)
+	dc.SetHexColor("#000000")
+	dc.SetLineWidth(6)
+	dc.DrawLine(x0-nx*half, y0-ny*half, x0+nx*half, y0+ny*half)
+	dc.Stroke()
+	dc.SetHexColor(textColor)
+	dc.SetLineWidth(3)
+	dc.DrawLine(x0-nx*half, y0-ny*half, x0+nx*half, y0+ny*half)
+	dc.Stroke()
+	dc.SetLineCap(gg.LineCapRound)
+
+	const size = 7.0
+	ax, ay := x0+nx*(half+size+2)+dx*size, y0+ny*(half+size+2)+dy*size
+	dc.MoveTo(ax+dx*size, ay+dy*size)
+	dc.LineTo(ax-dx*size*0.7+nx*size*0.6, ay-dy*size*0.7+ny*size*0.6)
+	dc.LineTo(ax-dx*size*0.7-nx*size*0.6, ay-dy*size*0.7-ny*size*0.6)
+	dc.ClosePath()
 	dc.Fill()
 }
 
