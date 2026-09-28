@@ -8,13 +8,18 @@
   "overlay": {
     "markers": [
       {
-        "position": [-2881, -7433],
-        "label": "RIC",
-        "color": "5E8FAA"
+        "position": [-2555, -8474],
+        "label": "MAG",
+        "color": "B6BABD"
+      },
+      {
+        "position": [-2788, -8237],
+        "label": "ALB",
+        "color": "37BEDD"
       }
     ],
     "banner": "RED FLAG · Race · Lap 2 · 17:06 UTC",
     "banner_color": "#E10600",
-    "caption": "Stopped: RIC · Tribunas, between turns 15 and 1"
+    "caption": "Retired: MAG, ALB · Turn 1, S do Senna"
   }
 }

@@ -136,9 +136,14 @@ func findIncident(ctx context.Context, sessionKey int, event string, fromLap int
 	if event == "yellow" {
 		anchor, flagsFrom, flagsTo = red.Date, red.Date.Add(-time.Second), red.Date.Add(10*time.Second)
 	} else {
-		for _, m := range msgs {
-			if m.Flag != nil && strings.Contains(*m.Flag, "YELLOW") && !m.Date.Before(flagsFrom) && !m.Date.After(red.Date) {
-				anchor = m.Date
+		// The first yellow still showing when the event came; earlier ones
+		// already cleared belong to other incidents.
+		for i, m := range msgs {
+			if m.Flag == nil || !strings.Contains(*m.Flag, "YELLOW") || m.Sector == nil || m.Date.Before(flagsFrom) || m.Date.After(red.Date) {
+				continue
+			}
+			if !clearedBefore(msgs[i+1:], *m.Sector, red.Date) {
+				anchor, flagsFrom = m.Date, m.Date.Add(-time.Second)
 				break
 			}
 		}
@@ -222,6 +227,42 @@ func findIncident(ctx context.Context, sessionKey int, event string, fromLap int
 		o.Markers = append(o.Markers, tracks.Marker{Position: endPt, Label: d.NameAcronym, Color: d.TeamColour})
 	}
 
+	// Cars that crashed well before the event have already stopped, often
+	// in a gravel trap, so fall back to the cars that retired on this lap or
+	// the one before, marked where they were when the event came.
+	var retired []string
+	if len(crash) == 0 {
+		results, err := of1.SessionResults(ctx, openf1.SessionFilter{SessionKey: key})
+		if err != nil {
+			return err
+		}
+		for _, r := range results {
+			if !r.DNF || r.NumberOfLaps < lap-2 || r.NumberOfLaps > lap {
+				continue
+			}
+			d := byNumber[r.DriverNumber]
+			locs, err := of1.Locations(ctx, openf1.WindowFilter{
+				SessionKey: key, DriverNumber: r.DriverNumber,
+				After: red.Date.Add(-10 * time.Second), Before: red.Date,
+			})
+			if err != nil {
+				return err
+			}
+			if len(locs) == 0 {
+				continue
+			}
+			end := locs[len(locs)-1]
+			pt := tracks.Point{float64(end.X), float64(end.Y)}
+			if offTrack(t, pt) {
+				continue
+			}
+			crash = append(crash, pt)
+			retired = append(retired, d.NameAcronym)
+			stoppedCars[r.DriverNumber] = true
+			o.Markers = append(o.Markers, tracks.Marker{Position: pt, Label: d.NameAcronym, Color: d.TeamColour})
+		}
+	}
+
 	// Where the incident was: the cars, else the flags. Flags near the cars
 	// are the focus; others are drawn faintly for context.
 	relevant := map[int]bool{}
@@ -292,6 +333,9 @@ func findIncident(ctx context.Context, sessionKey int, event string, fromLap int
 	}
 	if len(slowed) > 0 {
 		caption = append(caption, "Slowed: "+strings.Join(slowed, ", "))
+	}
+	if len(retired) > 0 {
+		caption = append(caption, "Retired: "+strings.Join(retired, ", "))
 	}
 	if s := where.String(); s != "" {
 		caption = append(caption, s)
@@ -374,6 +418,20 @@ func offTrack(t *tracks.Track, p tracks.Point) bool {
 		best = min(best, math.Hypot(q[0]-p[0], q[1]-p[1]))
 	}
 	return best/10 > 150
+}
+
+// clearedBefore reports whether a marshal sector's flag is cleared in msgs
+// before t.
+func clearedBefore(msgs []openf1.RaceControl, sector int, t time.Time) bool {
+	for _, m := range msgs {
+		if m.Date.After(t) {
+			return false
+		}
+		if m.Sector != nil && *m.Sector == sector && m.Flag != nil && *m.Flag == "CLEAR" {
+			return true
+		}
+	}
+	return false
 }
 
 // positionNear returns the location sample closest in time to t.

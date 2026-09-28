@@ -151,6 +151,12 @@ func (c *Client) CarData(ctx context.Context, f WindowFilter) ([]CarData, error)
 	return get[CarData](ctx, c, "/car_data", f.query())
 }
 
+func (c *Client) SessionResults(ctx context.Context, f SessionFilter) ([]SessionResult, error) {
+	var q query
+	q.str("session_key", f.SessionKey)
+	return get[SessionResult](ctx, c, "/session_result", q)
+}
+
 func (c *Client) Locations(ctx context.Context, f WindowFilter) ([]Location, error) {
 	return get[Location](ctx, c, "/location", f.query())
 }

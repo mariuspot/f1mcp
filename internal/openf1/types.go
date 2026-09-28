@@ -173,3 +173,15 @@ type Location struct {
 	Y            int       `json:"y"`
 	Z            int       `json:"z"`
 }
+
+// SessionResult is a driver's final classification in a session.
+type SessionResult struct {
+	MeetingKey   int  `json:"meeting_key"`
+	SessionKey   int  `json:"session_key"`
+	DriverNumber int  `json:"driver_number"`
+	Position     *int `json:"position"`
+	NumberOfLaps int  `json:"number_of_laps"`
+	DNF          bool `json:"dnf"`
+	DNS          bool `json:"dns"`
+	DSQ          bool `json:"dsq"`
+}

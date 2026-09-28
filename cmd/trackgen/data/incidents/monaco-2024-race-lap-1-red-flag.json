@@ -4,7 +4,7 @@
   "year": 2024,
   "session_key": 9523,
   "session": "Monaco Grand Prix · Race",
-  "corner": 6,
+  "corner": 2,
   "overlay": {
     "highlights": [
       {
@@ -33,6 +33,7 @@
         "to": [-1701.2, -389.1],
         "color": "#FFD100",
         "style": 0,
+        "faint": true,
         "label": "Yellow · sector 6"
       },
       {
@@ -40,6 +41,7 @@
         "to": [-529.7, -205],
         "color": "#FFD100",
         "style": 0,
+        "faint": true,
         "label": "Yellow · sector 9"
       },
       {
@@ -47,6 +49,7 @@
         "to": [-247.2, -1065],
         "color": "#FF8A00",
         "style": 1,
+        "faint": true,
         "label": "Double yellow · sector 10"
       },
       {
@@ -54,59 +57,20 @@
         "to": [-995, -3208],
         "color": "#FFD100",
         "style": 0,
+        "faint": true,
         "label": "Yellow · sector 11"
       }
     ],
     "markers": [
-      {
-        "position": [-452, -171],
-        "label": "VER",
-        "color": "3671C6"
-      },
-      {
-        "position": [-996, -653],
-        "label": "RIC",
-        "color": "6692FF"
-      },
-      {
-        "position": [-199, -400],
-        "label": "NOR",
-        "color": "FF8000"
-      },
-      {
-        "position": [-973, -405],
-        "label": "GAS",
-        "color": "0093cc"
-      },
       {
         "position": [-3080, -3688],
         "label": "PER",
         "color": "3671C6"
       },
       {
-        "position": [-243, -1212],
-        "label": "LEC",
-        "color": "E80020"
-      },
-      {
-        "position": [-1026, -574],
-        "label": "STR",
-        "color": "229971"
-      },
-      {
         "position": [-2918, -3657],
         "label": "MAG",
         "color": "B6BABD"
-      },
-      {
-        "position": [-812, -295],
-        "label": "TSU",
-        "color": "6692FF"
-      },
-      {
-        "position": [-895, -341],
-        "label": "ALB",
-        "color": "64C4FF"
       },
       {
         "position": [-3106, -3692],
@@ -119,33 +83,28 @@
         "color": "B6BABD"
       },
       {
-        "position": [-980, -413],
+        "position": [-271.2, -251.1],
+        "label": "GAS",
+        "color": "0093cc"
+      },
+      {
+        "position": [-271.2, -251.1],
         "label": "OCO",
         "color": "0093cc"
       },
       {
-        "position": [-655, -226],
-        "label": "HAM",
-        "color": "27F4D2"
+        "position": [-271.2, -251.1],
+        "label": "GAS",
+        "color": "0093cc"
       },
       {
-        "position": [-2238, -1110],
-        "label": "SAI",
-        "color": "E80020"
-      },
-      {
-        "position": [-275, -220],
-        "label": "RUS",
-        "color": "27F4D2"
-      },
-      {
-        "position": [-232, -1103],
-        "label": "PIA",
-        "color": "FF8000"
+        "position": [-271.2, -251.1],
+        "label": "OCO",
+        "color": "0093cc"
       }
     ],
     "banner": "RED FLAG · Race · Lap 1 · 13:04 UTC",
     "banner_color": "#E10600",
-    "caption": "Stopped: PER, MAG, HUL · Slowed: VER, RIC, NOR, GAS, LEC, STR, TSU, ALB, ZHO, OCO, HAM, SAI, RUS, PIA · Turn 6, Fairmont Hairpin"
+    "caption": "Stopped: PER, MAG, HUL · Slowed: ZHO · Turn 2, Avenue d'Ostende · Also noted: turn 8 incident, GAS and OCO"
   }
 }

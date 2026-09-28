@@ -90,9 +90,6 @@ func drawHighlights(dc *gg.Context, p projection, t *Track, o *Overlay, width fl
 				dc.Stroke()
 			}
 			dc.SetLineCap(gg.LineCapRound)
-			if h.Label != "" && !h.Faint {
-				drawHighlightLabel(dc, p, t, h, from, to, width)
-			}
 		}
 	}
 }
@@ -116,35 +113,65 @@ func traceOffset(dc *gg.Context, p projection, outline []Point, from, to int, of
 	}
 }
 
-func drawHighlightLabel(dc *gg.Context, p projection, t *Track, h Highlight, from, to int, width float64) {
+// drawHighlightLabels writes the labels of the highlights in focus beside
+// their stretch of track, wherever they overlap least with what is already
+// drawn. width is the drawn track width in pixels.
+func drawHighlightLabels(dc *gg.Context, p projection, t *Track, o *Overlay, width float64, taken []rect) {
+	if o == nil {
+		return
+	}
 	n := len(t.Outline)
-	x, y := p.point(t.Outline[((from+to)/2)%n])
-	cx, cy := outlineCentre(p, t.Outline)
-	dx, dy := x-cx, y-cy
-	if l := math.Hypot(dx, dy); l > 0 {
-		dx, dy = dx/l, dy/l
-	}
-	lx, ly := x+dx*(width*1.5+22), y+dy*(width*1.5+22)
-	ax := 0.0
-	if dx < 0 {
-		ax = 1
-	}
+	track := screenTrack(p, t.Outline)
+	W, H := float64(dc.Width()), float64(dc.Height())
 	dc.SetFontFace(face(boldFont, 15))
-	w, fh := dc.MeasureString(h.Label)
-	bx := lx - ax*w
-	dc.SetHexColor("#000000B0")
-	dc.DrawRoundedRectangle(bx-6, ly-fh/2-5, w+12, fh+10, 4)
-	dc.Fill()
-	dc.SetHexColor(hex(h.Color))
-	dc.DrawStringAnchored(h.Label, lx, ly, ax, 0.35)
+	for _, h := range o.Highlights {
+		if h.Label == "" || h.Faint {
+			continue
+		}
+		from, to := nearestIndex(t.Outline, h.From), nearestIndex(t.Outline, h.To)
+		if to < from {
+			to += n
+		}
+		w, fh := dc.MeasureString(h.Label)
+		bw, bh := w+12, fh+10
+		// Candidates either side of the stretch, at several points along it.
+		var candidates []rect
+		for _, f := range []float64{0.5, 0.3, 0.7, 0.15, 0.85} {
+			i := from + int(float64(to-from)*f)
+			x, y := p.point(t.Outline[i%n])
+			ax, ay := p.point(t.Outline[(i-2+n)%n])
+			bx, by := p.point(t.Outline[(i+2)%n])
+			tx, ty := bx-ax, by-ay
+			l := math.Hypot(tx, ty)
+			if l == 0 {
+				continue
+			}
+			nx, ny := -ty/l, tx/l
+			for _, side := range []float64{1, -1} {
+				d := width*1.5 + 10
+				cx, cy := x+nx*side*(d+bw/2), y+ny*side*(d+bh/2)
+				candidates = append(candidates, rect{cx - bw/2, cy - bh/2, cx + bw/2, cy + bh/2})
+			}
+		}
+		if len(candidates) == 0 {
+			continue
+		}
+		best := bestPlacement(candidates, taken, track, width, W, H)
+		taken = append(taken, best)
+		dc.SetHexColor("#000000B0")
+		dc.DrawRoundedRectangle(best.x0, best.y0, bw, bh, 4)
+		dc.Fill()
+		dc.SetHexColor(hex(h.Color))
+		dc.DrawStringAnchored(h.Label, best.x0+6, (best.y0+best.y1)/2, 0, 0.35)
+	}
 }
 
 // drawMarkers draws each marker as a coloured dot with its label beside it.
 // Markers too close together to tell apart are spread round their shared
 // spot, each with a thin line back to its exact position.
-func drawMarkers(dc *gg.Context, p projection, o *Overlay, radius float64) {
+func drawMarkers(dc *gg.Context, p projection, o *Overlay, radius float64) []rect {
 	if o == nil {
-		return
+		return nil
 	}
 	type placed struct {
 		m      Marker
@@ -202,6 +229,7 @@ func drawMarkers(dc *gg.Context, p projection, o *Overlay, radius float64) {
 		dc.Fill()
 	}
 	dc.SetFontFace(face(boldFont, radius*1.3))
+	var rects []rect
 	for _, m := range ms {
 		w, h := dc.MeasureString(m.m.Label)
 		lx, ly := m.dx+radius+8, m.dy
@@ -210,7 +238,11 @@ func drawMarkers(dc *gg.Context, p projection, o *Overlay, radius float64) {
 		dc.Fill()
 		dc.SetHexColor(textColor)
 		dc.DrawStringAnchored(m.m.Label, lx, ly, 0, 0.35)
+		rects = append(rects,
+			rect{m.dx - radius - 3, m.dy - radius - 3, m.dx + radius + 3, m.dy + radius + 3},
+			rect{lx - 4, ly - h/2 - 4, lx + w + 4, ly + h/2 + 4})
 	}
+	return rects
 }
 
 // drawBanner draws the overlay's banner as a pill under the title, with the

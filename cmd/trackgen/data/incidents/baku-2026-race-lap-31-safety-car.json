@@ -4,23 +4,9 @@
   "year": 2026,
   "session_key": 11377,
   "session": "Azerbaijan Grand Prix · Race",
-  "corner": 20,
+  "corner": 6,
   "overlay": {
     "highlights": [
-      {
-        "from": [856.2, -678.2],
-        "to": [2743.8, 112.3],
-        "color": "#FFD100",
-        "style": 0,
-        "label": "Yellow · sector 1"
-      },
-      {
-        "from": [2743.8, 112.3],
-        "to": [2879.5, 2819.9],
-        "color": "#FFD100",
-        "style": 0,
-        "label": "Yellow · sector 2"
-      },
       {
         "from": [-5218.9, -680.1],
         "to": [-6644.8, -2605.1],
@@ -36,8 +22,15 @@
         "label": "Double yellow · sector 7"
       }
     ],
+    "markers": [
+      {
+        "position": [-7636, -3753],
+        "label": "ALB",
+        "color": "1868DB"
+      }
+    ],
     "banner": "SAFETY CAR · Race · Lap 31 · 11:58 UTC",
     "banner_color": "#E0A800",
-    "caption": "Neftchilar Avenue, between turns 20 and 1"
+    "caption": "Stopped: ALB · Turn 6"
   }
 }

@@ -4,9 +4,17 @@
   "year": 2023,
   "session_key": 7787,
   "session": "Australian Grand Prix · Race",
-  "corner": 0,
+  "corner": 7,
   "overlay": {
+    "markers": [
+      {
+        "position": [-1744, 11579],
+        "label": "ALB",
+        "color": "37BEDD"
+      }
+    ],
     "banner": "RED FLAG · Race · Lap 8 · 05:17 UTC",
-    "banner_color": "#E10600"
+    "banner_color": "#E10600",
+    "caption": "Retired: ALB · Turn 7"
   }
 }

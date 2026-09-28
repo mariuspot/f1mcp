@@ -158,8 +158,10 @@ func Render(t *Track, o Options) (image.Image, error) {
 	for _, c := range t.Corners {
 		drawCornerMarker(dc, p, c, 40, 14, false)
 	}
-	drawCornerNames(dc, p, t, 40, 14, 20, taken)
-	drawMarkers(dc, p, o.Overlay, 9)
+	taken = append(taken, drawMarshalNumbers(dc, p, t, 14+2*3)...)
+	taken = drawCornerNames(dc, p, t, 40, 14, 20, taken)
+	taken = append(taken, drawMarkers(dc, p, o.Overlay, 9)...)
+	drawHighlightLabels(dc, p, t, o.Overlay, 14, taken)
 	drawTitle(dc, t.Name, fmt.Sprintf("%s, %s · %s", t.Locality, t.Country, o.years(t)))
 	drawBanner(dc, o.Overlay)
 	drawSectorLegend(dc, t, mapHeight-40)
@@ -205,7 +207,10 @@ func RenderCorner(t *Track, number int, o Options) (image.Image, error) {
 		}
 	}
 	drawCornerMarker(dc, p, c, 80, 24, true)
-	drawMarkers(dc, p, o.Overlay, 13)
+	taken := markerRects(p, t, 70, 16)
+	taken = append(taken, drawMarshalNumbers(dc, p, t, trackWidth*scale)...)
+	taken = append(taken, drawMarkers(dc, p, o.Overlay, 13)...)
+	drawHighlightLabels(dc, p, t, o.Overlay, trackWidth*scale, taken)
 
 	title := fmt.Sprintf("Turn %d", c.Number)
 	if c.Name != "" {
@@ -256,6 +261,7 @@ func drawTrack(dc *gg.Context, p projection, t *Track, width float64) {
 	for _, c := range t.Corners {
 		drawKerb(dc, p, t.Outline, c, width, edge)
 	}
+	drawMarshalStrip(dc, p, t, width, edge)
 	drawStartFinish(dc, p, t.Outline, width+2*edge)
 }
 
@@ -525,6 +531,52 @@ func markerCentre(p projection, c Corner, distance float64) (float64, float64) {
 
 type rect struct{ x0, y0, x1, y1 float64 }
 
+// bestPlacement returns the candidate label box that overlaps least with
+// labels already placed, the track and the edges of the image.
+func bestPlacement(candidates, taken []rect, track [][2]float64, trackWidth, W, H float64) rect {
+	best, bestScore := candidates[0], math.Inf(1)
+	for _, r := range candidates {
+		score := 0.0
+		for _, o := range taken {
+			if r.overlaps(o) {
+				score += 10
+			}
+		}
+		for _, pt := range track {
+			if r.contains(pt[0], pt[1], trackWidth/2) {
+				score += 2
+			}
+		}
+		if r.x0 < 0 || r.y0 < header || r.x1 > W || r.y1 > H {
+			score += 100
+		}
+		if score < bestScore {
+			best, bestScore = r, score
+		}
+	}
+	return best
+}
+
+// screenTrack returns the outline in pixels.
+func screenTrack(p projection, outline []Point) [][2]float64 {
+	out := make([][2]float64, len(outline))
+	for i, pt := range outline {
+		x, y := p.point(pt)
+		out[i] = [2]float64{x, y}
+	}
+	return out
+}
+
+// markerRects returns the boxes of the corner markers.
+func markerRects(p projection, t *Track, distance, radius float64) []rect {
+	var out []rect
+	for _, c := range t.Corners {
+		cx, cy := markerCentre(p, c, distance)
+		out = append(out, rect{cx - radius, cy - radius, cx + radius, cy + radius})
+	}
+	return out
+}
+
 func (r rect) overlaps(o rect) bool {
 	return r.x0 < o.x1 && o.x0 < r.x1 && r.y0 < o.y1 && o.y0 < r.y1
 }
@@ -537,18 +589,14 @@ func (r rect) contains(x, y, pad float64) bool {
 // on whichever side of its marker overlaps least with other markers, names
 // already placed and the track. A complex's name is shown once, at its first
 // turn.
-func drawCornerNames(dc *gg.Context, p projection, t *Track, distance, radius, trackWidth float64, taken []rect) {
+func drawCornerNames(dc *gg.Context, p projection, t *Track, distance, radius, trackWidth float64, taken []rect) []rect {
 	nameFace, altFace := face(regularFont, 16), face(italicFont, 14)
 	dc.SetFontFace(nameFace)
 	for _, c := range t.Corners {
 		cx, cy := markerCentre(p, c, distance)
 		taken = append(taken, rect{cx - radius, cy - radius, cx + radius, cy + radius})
 	}
-	var track [][2]float64
-	for _, pt := range t.Outline {
-		x, y := p.point(pt)
-		track = append(track, [2]float64{x, y})
-	}
+	track := screenTrack(p, t.Outline)
 	W, H := float64(dc.Width()), float64(dc.Height())
 
 	for i, c := range t.Corners {
@@ -581,26 +629,7 @@ func drawCornerNames(dc *gg.Context, p projection, t *Track, distance, radius, t
 			candidates = []rect{left, right, above, below, upLeft, upRight, downLeft, downRight}
 		}
 
-		best, bestScore := candidates[0], math.Inf(1)
-		for _, r := range candidates {
-			score := 0.0
-			for _, o := range taken {
-				if r.overlaps(o) {
-					score += 10
-				}
-			}
-			for _, pt := range track {
-				if r.contains(pt[0], pt[1], trackWidth/2) {
-					score += 2
-				}
-			}
-			if r.x0 < 0 || r.y0 < header || r.x1 > W || r.y1 > H {
-				score += 100
-			}
-			if score < bestScore {
-				best, bestScore = r, score
-			}
-		}
+		best := bestPlacement(candidates, taken, track, trackWidth, W, H)
 		taken = append(taken, best)
 		// Align text to the marker side of the box.
 		ax, tx := 0.0, best.x0
@@ -618,6 +647,7 @@ func drawCornerNames(dc *gg.Context, p projection, t *Track, distance, radius, t
 			dc.SetFontFace(nameFace)
 		}
 	}
+	return taken
 }
 
 // drawInset draws a small map of the whole circuit in the top right corner,

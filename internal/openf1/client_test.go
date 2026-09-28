@@ -234,6 +234,21 @@ func TestLocations(t *testing.T) {
 	}
 }
 
+func TestSessionResults(t *testing.T) {
+	c := goldenClient(t, "session_result", "/session_result", "session_key=9165")
+	got, err := c.SessionResults(context.Background(), SessionFilter{SessionKey: "9165"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) < 19 {
+		t.Fatalf("got %d results, want at least 19", len(got))
+	}
+	win := got[slices.IndexFunc(got, func(r SessionResult) bool { return r.Position != nil && *r.Position == 1 })]
+	if win.DriverNumber != 55 || win.DNF {
+		t.Errorf("unexpected winner: %+v", win)
+	}
+}
+
 // OpenF1 answers queries that match nothing with 404 {"detail":"No results found."}.
 func TestNoResultsIsEmpty(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -18,6 +18,8 @@ type Location struct {
 	Before, After *Corner
 	// Straight is the name of the straight the point is on, if any.
 	Straight string
+	// straightEnds are the corners at either end of Straight.
+	straightEnds [2]int
 	// MarshalSector is the marshal sector the point is in, or 0 if unknown.
 	MarshalSector int
 }
@@ -69,7 +71,7 @@ func (t *Track) Locate(p Point) Location {
 			continue
 		}
 		if (to >= from && i >= from && i <= to) || (to < from && (i >= from || i <= to)) {
-			loc.Straight = s.Name
+			loc.Straight, loc.straightEnds = s.Name, [2]int{s.From, s.To}
 		}
 	}
 
@@ -87,7 +89,8 @@ func (t *Track) Locate(p Point) Location {
 // "Avenue d'Ostende, between turns 2 and 3".
 func (l Location) String() string {
 	if l.At != nil {
-		if l.Straight != "" {
+		// A corner at the end of a straight isn't on it.
+		if l.Straight != "" && l.At.Number != l.straightEnds[0] && l.At.Number != l.straightEnds[1] {
 			return cornerLabel(*l.At) + ", " + l.Straight
 		}
 		return cornerLabel(*l.At)

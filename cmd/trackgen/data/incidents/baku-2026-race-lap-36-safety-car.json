@@ -44,6 +44,11 @@
         "color": "F47600"
       },
       {
+        "position": [2958, 2642],
+        "label": "GAS",
+        "color": "00A1E8"
+      },
+      {
         "position": [3688, 965],
         "label": "COL",
         "color": "00A1E8"
@@ -51,6 +56,6 @@
     ],
     "banner": "SAFETY CAR · Race · Lap 36 · 12:12 UTC",
     "banner_color": "#E0A800",
-    "caption": "Stopped: NOR, COL · Turn 1"
+    "caption": "Stopped: NOR, COL · Slowed: GAS · between turns 1 and 2"
   }
 }
