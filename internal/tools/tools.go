@@ -11,6 +11,7 @@ import (
 // Register adds all tools to s.
 func Register(s *mcp.Server, svc *f1.Service) {
 	registerSeason(s, svc)
+	registerSession(s, svc)
 }
 
 // Arguments shared by several tools.

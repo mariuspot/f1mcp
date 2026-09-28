@@ -109,6 +109,18 @@ func (l Location) String() string {
 	}
 }
 
+// Approaching names the corner a point is at or heading into, e.g.
+// "Turn 1, La Source"; useful for where a car brakes.
+func (l Location) Approaching() string {
+	switch {
+	case l.At != nil:
+		return cornerLabel(*l.At)
+	case l.After != nil:
+		return cornerLabel(*l.After)
+	}
+	return ""
+}
+
 func cornerLabel(c Corner) string {
 	if c.Name != "" {
 		return fmt.Sprintf("Turn %d, %s", c.Number, c.Name)
