@@ -3,6 +3,7 @@
 //
 //	go run ./cmd/trackgen fetch   # download missing layouts, then fix up all stored ones
 //	go run ./cmd/trackgen incident -session 9523  # store the incident behind a red flag
+//	go run ./cmd/trackgen lap -session 11373 -count 2  # store the two fastest laps of a session
 //	go run ./cmd/trackgen render  # write map and corner images into assets/tracks
 //
 // Layouts come from MultiViewer's circuit API, keyed by OpenF1's circuit_key,
@@ -68,17 +69,41 @@ func main() {
 		if err := findIncident(ctx, *session, *event, *lap, carNumbers(*drivers), *dir); err != nil {
 			log.Fatal(err)
 		}
+	case "lap":
+		fs := flag.NewFlagSet("lap", flag.ExitOnError)
+		session := fs.Int("session", 0, "OpenF1 session key")
+		drivers := fs.String("drivers", "", "comma-separated car numbers or codes, e.g. RUS,VER (default: the fastest -count drivers)")
+		count := fs.Int("count", 1, "how many of the fastest drivers' best laps to store")
+		dir := fs.String("dir", "cmd/trackgen/data/laps", "stored laps")
+		fs.Parse(args)
+		if *session == 0 {
+			usage()
+		}
+		if err := findLaps(ctx, *session, splitList(*drivers), *count, *dir); err != nil {
+			log.Fatal(err)
+		}
 	case "render":
 		fs := flag.NewFlagSet("render", flag.ExitOnError)
 		out := fs.String("out", "assets/tracks", "output directory")
 		incidents := fs.String("incidents", "cmd/trackgen/data/incidents", "stored incidents")
+		laps := fs.String("laps", "cmd/trackgen/data/laps", "stored laps")
 		fs.Parse(args)
-		if err := render(*out, *incidents); err != nil {
+		if err := render(*out, *incidents, *laps); err != nil {
 			log.Fatal(err)
 		}
 	default:
 		usage()
 	}
+}
+
+func splitList(s string) []string {
+	var out []string
+	for f := range strings.SplitSeq(s, ",") {
+		if f = strings.TrimSpace(f); f != "" {
+			out = append(out, f)
+		}
+	}
+	return out
 }
 
 func carNumbers(s string) []int {
@@ -92,6 +117,6 @@ func carNumbers(s string) []int {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: trackgen fetch [-from 2023] [-to YEAR] [-only IDS] [-force]\n       trackgen incident -session KEY [-event red|sc|vsc|yellow] [-lap N] [-drivers N,N]\n       trackgen render [-out DIR]")
+	fmt.Fprintln(os.Stderr, "usage: trackgen fetch [-from 2023] [-to YEAR] [-only IDS] [-force]\n       trackgen incident -session KEY [-event red|sc|vsc|yellow] [-lap N] [-drivers N,N]\n       trackgen lap -session KEY [-count N | -drivers N,N]\n       trackgen render [-out DIR]")
 	os.Exit(2)
 }

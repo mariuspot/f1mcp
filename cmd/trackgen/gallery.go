@@ -40,9 +40,16 @@ type galleryIncident struct {
 	Track      *tracks.Track
 }
 
-// writeGallery writes index.html listing every layout and incident, and an
-// index.html in each of their directories.
-func writeGallery(out string, layouts []galleryLayout, incidents []galleryIncident) error {
+// galleryLaps is one rendered lap animation.
+type galleryLaps struct {
+	Dir   string
+	Title string // e.g. "NOR 1:41.234 vs PIA 1:41.456"
+	Laps  LapFile
+}
+
+// writeGallery writes index.html listing every layout, incident and lap
+// animation, and an index.html in each of their directories.
+func writeGallery(out string, layouts []galleryLayout, incidents []galleryIncident, laps []galleryLaps) error {
 	slices.SortFunc(layouts, func(a, b galleryLayout) int {
 		return strings.Compare(a.Track.Name+a.Years, b.Track.Name+b.Years)
 	})
@@ -52,7 +59,8 @@ func writeGallery(out string, layouts []galleryLayout, incidents []galleryIncide
 	index := struct {
 		Layouts   []galleryLayout
 		Incidents []galleryIncident
-	}{layouts, incidents}
+		Laps      []galleryLaps
+	}{layouts, incidents, laps}
 	if err := writeTemplate(filepath.Join(out, "index.html"), indexTmpl, index); err != nil {
 		return err
 	}
@@ -63,6 +71,11 @@ func writeGallery(out string, layouts []galleryLayout, incidents []galleryIncide
 	}
 	for _, inc := range incidents {
 		if err := writeTemplate(filepath.Join(out, inc.Dir, "index.html"), incidentTmpl, inc); err != nil {
+			return err
+		}
+	}
+	for _, l := range laps {
+		if err := writeTemplate(filepath.Join(out, l.Dir, "index.html"), lapsTmpl, l); err != nil {
 			return err
 		}
 	}
@@ -123,7 +136,15 @@ var indexTmpl = template.Must(template.New("index").Parse(`<!doctype html>
 <h1>F1 track maps</h1>
 <p>{{len .Layouts}} circuit layouts, with timing sectors, kerbs, start/finish line, elevation and every corner.</p>
 </header>
-{{if .Incidents}}<h2>Incidents</h2>
+{{if .Laps}}<h2>Laps</h2>
+<div class="grid">
+{{range .Laps}}<a class="card" href="{{.Dir}}/">
+<img src="{{.Dir}}/poster.png" alt="Lap animation" loading="lazy">
+<div class="info"><div class="title">{{.Laps.Session}} {{.Laps.Year}}</div>
+<div class="muted">{{.Title}}</div></div>
+</a>
+{{end}}</div>
+{{end}}{{if .Incidents}}<h2>Incidents</h2>
 <div class="grid">
 {{range .Incidents}}<a class="card" href="{{.Dir}}/">
 <img src="{{.Dir}}/map.png" alt="Map of {{.Incident.Session}}" loading="lazy">
@@ -132,7 +153,7 @@ var indexTmpl = template.Must(template.New("index").Parse(`<!doctype html>
 <div class="muted">{{.Incident.Overlay.Caption}}</div></div>
 </a>
 {{end}}</div>
-<h2>Circuits</h2>{{end}}
+{{end}}{{if or .Incidents .Laps}}<h2>Circuits</h2>{{end}}
 <div class="grid">
 {{range .Layouts}}<a class="card" href="{{.Dir}}/">
 <img src="{{.Dir}}/map.png" alt="Map of {{.Track.Name}}" loading="lazy">
@@ -165,6 +186,31 @@ var incidentTmpl = template.Must(template.New("incident").Parse(`<!doctype html>
 <a href="map.png"><img class="map" src="map.png" alt="Map of the incident"></a>
 {{if .CornerFile}}<h2>Close-up</h2>
 <a href="{{.CornerFile}}"><img class="map" src="{{.CornerFile}}" alt="Close-up of the incident"></a>{{end}}
+` + galleryFooter + `
+</main>
+</body>
+</html>
+`))
+
+var lapsTmpl = template.Must(template.New("laps").Parse(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · F1 track maps</title>
+<style>` + galleryCSS + `</style>
+</head>
+<body>
+<main>
+<a class="back" href="../../">← All circuits, incidents and laps</a>
+<header>
+<h1>{{.Laps.Session}} {{.Laps.Year}}</h1>
+<p>{{.Title}}</p>
+</header>
+<img class="map" src="lap.gif" alt="Animation of {{.Title}}">
+<h2>With braking and gear changes</h2>
+<p class="muted">Red marks where each driver was on the brakes, with their speed in km/h as braking started; dots show each gear change and the new gear.</p>
+<img class="map" src="lap-events.gif" alt="Animation of {{.Title}} with braking and gear changes">
 ` + galleryFooter + `
 </main>
 </body>

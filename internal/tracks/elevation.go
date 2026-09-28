@@ -44,6 +44,39 @@ type elevationPanel struct {
 	focus *Corner
 }
 
+// mapElevationPanel is where Render puts the elevation panel on a full map.
+func mapElevationPanel() elevationPanel {
+	return elevationPanel{x: 48, y: mapHeight, w: mapWidth - 96, h: mapElevationHeight - 50, detailed: true}
+}
+
+// plotArea returns the part of the panel the profile is drawn in.
+func (e elevationPanel) plotArea() (x, y, w, h float64) {
+	left, right, top, bottom := 64.0, 20.0, 44.0, 16.0
+	if e.detailed {
+		top, bottom = 84, 34
+	}
+	return e.x + left, e.y + top, e.w - left - right, e.h - top - bottom
+}
+
+// axes returns functions placing a distance round the lap and a height on
+// the profile, for a lap of length lap metres drawn up to top metres high.
+func (e elevationPanel) axes(lap, top float64) (xAt, yAt func(float64) float64) {
+	px, py, pw, ph := e.plotArea()
+	return func(d float64) float64 { return px + d/lap*pw },
+		func(z float64) float64 { return py + ph - z/top*ph }
+}
+
+// elevationAt interpolates the track's height at a distance round the lap.
+func elevationAt(t *Track, dist []float64, d float64) float64 {
+	for i := 1; i < len(dist); i++ {
+		if dist[i] >= d {
+			f := (d - dist[i-1]) / max(dist[i]-dist[i-1], 1e-9)
+			return t.Elevation[i-1] + f*(t.Elevation[i]-t.Elevation[i-1])
+		}
+	}
+	return t.Elevation[len(t.Elevation)-1]
+}
+
 // drawElevation draws the track's height against distance round the lap.
 func drawElevation(dc *gg.Context, t *Track, e elevationPanel) {
 	if len(t.Elevation) != len(t.Outline) {
@@ -72,15 +105,8 @@ func drawElevation(dc *gg.Context, t *Track, e elevationPanel) {
 	}
 	dc.DrawString(summary, e.x+16+tw+12, e.y+26)
 
-	// Plot area.
-	left, right, topPad, bottom := 64.0, 20.0, 44.0, 16.0
-	if e.detailed {
-		topPad, bottom = 84, 34
-	}
-	px, py := e.x+left, e.y+topPad
-	pw, ph := e.w-left-right, e.h-topPad-bottom
-	xAt := func(d float64) float64 { return px + d/lap*pw }
-	yAt := func(z float64) float64 { return py + ph - z/top*ph }
+	px, py, pw, ph := e.plotArea()
+	xAt, yAt := e.axes(lap, top)
 
 	// Height gridlines and labels.
 	dc.SetFontFace(face(regularFont, 13))

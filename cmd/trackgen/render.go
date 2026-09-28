@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"image"
+	"image/gif"
 	"log"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/mariuspot/f1mcp/internal/tracks"
 )
@@ -15,7 +17,7 @@ import (
 // circuit, into <out>/<circuit>-<first year>[-<last year>]/. When a circuit
 // changes, each version gets its own directory. It also writes an HTML
 // gallery of them: index.html and one page per layout.
-func render(out, incidentsDir string) error {
+func render(out, incidentsDir, lapsDir string) error {
 	ids, err := tracks.Circuits()
 	if err != nil {
 		return err
@@ -56,7 +58,65 @@ func render(out, incidentsDir string) error {
 		incidentPages = append(incidentPages, page)
 		log.Printf("wrote incident %s", inc.Name)
 	}
-	return writeGallery(out, pages, incidentPages)
+	lapFiles, err := loadLapFiles(lapsDir)
+	if err != nil {
+		return err
+	}
+	var lapPages []galleryLaps
+	for _, f := range lapFiles {
+		page, err := renderLaps(out, f)
+		if err != nil {
+			return fmt.Errorf("laps %s: %w", f.Name, err)
+		}
+		lapPages = append(lapPages, page)
+		log.Printf("wrote laps %s", f.Name)
+	}
+	return writeGallery(out, pages, incidentPages, lapPages)
+}
+
+// renderLaps animates stored laps into <out>/laps/<name>/lap.gif, with the
+// last frame as a still poster.png.
+func renderLaps(out string, f LapFile) (galleryLaps, error) {
+	t, err := tracks.Load(f.CircuitID, f.Year)
+	if err != nil {
+		return galleryLaps{}, err
+	}
+	dir := filepath.Join(out, "laps", f.Name)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return galleryLaps{}, err
+	}
+	var who []string
+	for _, l := range f.Laps {
+		who = append(who, fmt.Sprintf("%s %s", l.Driver, formatSeconds(l.Duration)))
+	}
+	title := strings.Join(who, " vs ")
+	o := tracks.Options{Years: strconv.Itoa(f.Year), Overlay: &tracks.Overlay{Banner: f.Session + " · " + title, BannerColor: "#2C2C3A"}}
+	var g *gif.GIF
+	for _, v := range []struct {
+		file   string
+		events bool
+	}{{"lap.gif", false}, {"lap-events.gif", true}} {
+		o.LapEvents = v.events
+		if g, err = tracks.RenderLapGIF(t, f.Laps, o); err != nil {
+			return galleryLaps{}, err
+		}
+		gf, err := os.Create(filepath.Join(dir, v.file))
+		if err != nil {
+			return galleryLaps{}, err
+		}
+		if err := gif.EncodeAll(gf, g); err != nil {
+			gf.Close()
+			return galleryLaps{}, err
+		}
+		if err := gf.Close(); err != nil {
+			return galleryLaps{}, err
+		}
+	}
+	// The first frame is complete; it makes a clean poster.
+	if err := writePNG(filepath.Join(dir, "poster.png"), g.Image[0]); err != nil {
+		return galleryLaps{}, err
+	}
+	return galleryLaps{Dir: "laps/" + f.Name, Laps: f, Title: title}, nil
 }
 
 // renderIncident draws an incident on its track map and nearest corner, into

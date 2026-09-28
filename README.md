@@ -67,6 +67,15 @@ go run ./cmd/trackgen incident -session 11377 -event sc -lap 36   # store what c
 
 It works out the flagged marshal sectors and the cars that stopped or slowed from OpenF1 data, and saves the result in `cmd/trackgen/data/incidents/`; `make tracks-render` then adds it to the gallery.
 
+Laps can be animated as GIFs, one driver or several raced against each other by lap time:
+
+```sh
+go run ./cmd/trackgen lap -session 11373 -count 1          # the fastest lap of a session
+go run ./cmd/trackgen lap -session 11373 -drivers RUS,VER  # two drivers' best laps
+```
+
+Each stored lap (in `cmd/trackgen/data/laps/`) is rendered twice: the cars with speed, gear, throttle, brake and gap; and the same with braking zones, braking speeds and gear changes left on the track.
+
 Corner and straight names live in `internal/tracks/data/names.json`, keyed by circuit. A corner can be a single turn (`"9": "Copse"`), a complex sharing one name (`"10-13": "Maggotts and Becketts"`), or have an alternative name (`"17": {"name": "Mansell Corner", "alt": "Peraltada"}`). Straights are named by the turns at each end. Names are taken from each circuit's Wikipedia article.
 
 ### Tests and golden files

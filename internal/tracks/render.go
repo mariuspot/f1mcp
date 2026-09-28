@@ -121,6 +121,9 @@ type Options struct {
 	Years string
 	// Overlay adds flags, cars and incidents on top of the track.
 	Overlay *Overlay
+	// LapEvents makes RenderLapGIF leave marks on the track where each car
+	// braked and changed gear.
+	LapEvents bool
 }
 
 func (o Options) years(t *Track) string {
@@ -136,9 +139,7 @@ func Render(t *Track, o Options) (image.Image, error) {
 	if len(t.Outline) < 2 {
 		return nil, fmt.Errorf("track %s %d has no outline", t.CircuitID, t.Year)
 	}
-	const margin = 150 // room for corner labels around the track
-	p := newProjection(t.Rotation).fit(t.Outline, margin, header+margin,
-		mapWidth-2*margin, mapHeight-header-2*margin)
+	p := mapProjection(t)
 	height := mapHeight
 	if len(t.Elevation) > 0 {
 		height += mapElevationHeight
@@ -165,9 +166,16 @@ func Render(t *Track, o Options) (image.Image, error) {
 	drawTitle(dc, t.Name, fmt.Sprintf("%s, %s · %s", t.Locality, t.Country, o.years(t)))
 	drawBanner(dc, o.Overlay)
 	drawSectorLegend(dc, t, mapHeight-40)
-	drawElevation(dc, t, elevationPanel{x: 48, y: mapHeight, w: mapWidth - 96, h: mapElevationHeight - 50, detailed: true})
+	drawElevation(dc, t, mapElevationPanel())
 	drawCredit(dc, mapWidth, float64(height))
 	return dc.Image(), nil
+}
+
+// mapProjection is how Render places a track on the full map.
+func mapProjection(t *Track) projection {
+	const margin = 150 // room for corner labels around the track
+	return newProjection(t.Rotation).fit(t.Outline, margin, header+margin,
+		mapWidth-2*margin, mapHeight-header-2*margin)
 }
 
 // RenderCorner draws a close-up of one corner, with a small map of the whole
@@ -358,7 +366,8 @@ func indexWithin(outline []Point, i, dir int) int {
 // the outline, with an arrow beside it showing the direction of travel.
 func drawStartFinish(dc *gg.Context, p projection, outline []Point, width float64) {
 	x0, y0 := p.point(outline[0])
-	x1, y1 := p.point(outline[min(3, len(outline)-1)])
+	// Heading over a stretch of track, so one odd point can't flip it.
+	x1, y1 := p.point(outline[min(8, len(outline)-1)])
 	dx, dy := x1-x0, y1-y0
 	l := math.Hypot(dx, dy)
 	dx, dy = dx/l, dy/l
@@ -689,7 +698,7 @@ func drawInset(dc *gg.Context, t *Track, c Corner) {
 // across the track and an arrow beside it showing the direction of travel.
 func drawInsetStart(dc *gg.Context, p projection, outline []Point) {
 	x0, y0 := p.point(outline[0])
-	x1, y1 := p.point(outline[min(3, len(outline)-1)])
+	x1, y1 := p.point(outline[min(8, len(outline)-1)])
 	dx, dy := x1-x0, y1-y0
 	l := math.Hypot(dx, dy)
 	if l == 0 {
