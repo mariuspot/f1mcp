@@ -39,9 +39,9 @@ type IncidentResult struct {
 
 type LapAnimationArgs struct {
 	SessionArgs
-	Drivers []string `json:"drivers,omitempty" jsonschema:"up to 4 drivers (code, car number or name), compared lap against lap; default: the fastest driver"`
+	Drivers []string `json:"drivers,omitempty" jsonschema:"up to 4 drivers (code, car number or name), compared lap against lap; default: the fastest driver, or the fastest two for format faster"`
 	Lap     int      `json:"lap,omitempty" jsonschema:"this lap number for each driver (default: each driver's best lap)"`
-	Format  string   `json:"format,omitempty" jsonschema:"png (default): a still of the end of the lap; gif: an animation of the whole lap at 3x speed (larger, a few MB)"`
+	Format  string   `json:"format,omitempty" jsonschema:"png (default): a still of the end of the lap; gif: an animation of the whole lap at 3x speed (larger, a few MB); faster: a map of who was faster through each corner and straight, with the gap all round the lap (2 to 4 drivers)"`
 	Braking bool     `json:"braking,omitempty" jsonschema:"also mark where each car braked (speed before and at the slowest) and changed gear"`
 }
 
@@ -54,13 +54,34 @@ type LapSummary struct {
 	Compound   string   `json:"compound,omitempty"`
 	TyreAge    int      `json:"tyre_age_laps"` // laps the tyre had done before this one
 	TopSpeed   float64  `json:"top_speed_kph"`
+	// With format faster: how many stretches this driver was fastest in,
+	// and where they gained most on the next fastest.
+	StretchesWon *int         `json:"stretches_won,omitempty"`
+	BiggestGain  *StretchGain `json:"biggest_gain,omitempty"`
+}
+
+type StretchGain struct {
+	Stretch string  `json:"stretch"`
+	Seconds float64 `json:"seconds"`
+}
+
+// StretchSummary is who was fastest through one corner or straight.
+type StretchSummary struct {
+	Name    string    `json:"name"` // e.g. "Turn 9, Copse", "Hangar Straight"
+	Corner  bool      `json:"corner"`
+	FromM   float64   `json:"from_m"`
+	ToM     float64   `json:"to_m"` // before from_m for the stretch across the line
+	Fastest string    `json:"fastest"`
+	Margin  float64   `json:"margin_seconds"` // to the next fastest
+	Seconds []float64 `json:"seconds"`        // each driver's time, in the order of laps
 }
 
 type LapAnimationResult struct {
-	Event   f1.Event       `json:"event"`
-	Session string         `json:"session"`
-	Laps    []LapSummary   `json:"laps"`
-	Weather *f1.LapWeather `json:"weather,omitempty"`
+	Event     f1.Event         `json:"event"`
+	Session   string           `json:"session"`
+	Laps      []LapSummary     `json:"laps"`
+	Stretches []StretchSummary `json:"stretches,omitempty"`
+	Weather   *f1.LapWeather   `json:"weather,omitempty"`
 }
 
 func registerReplay(s *mcp.Server, svc *f1.Service) {
@@ -125,14 +146,22 @@ func registerReplay(s *mcp.Server, svc *f1.Service) {
 		Name: "get_lap_animation",
 		Description: "Replay laps on the track map, from 2023: one driver's lap, or several drivers' laps compared as if they started together, " +
 			"with speed, gear, throttle, brake, tyre and the gap at each point. A PNG still of the end of the lap by default, or an animated GIF. " +
-			"Also returns each lap's time, gap, tyre compound and age, top speed, and the weather.",
+			"With format faster, a map of which driver was faster through each corner and straight, with the gap all round the lap, and those " +
+			"times. Also returns each lap's time, gap, tyre compound and age, top speed, and the weather.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, a LapAnimationArgs) (*mcp.CallToolResult, LapAnimationResult, error) {
 		if len(a.Drivers) > 4 {
 			return nil, LapAnimationResult{}, fmt.Errorf("at most 4 drivers, not %d", len(a.Drivers))
 		}
 		format := strings.ToLower(a.Format)
-		if format != "" && format != "png" && format != "gif" {
-			return nil, LapAnimationResult{}, fmt.Errorf("format %q: want png or gif", a.Format)
+		if format != "" && format != "png" && format != "gif" && format != "faster" {
+			return nil, LapAnimationResult{}, fmt.Errorf("format %q: want png, gif or faster", a.Format)
+		}
+		count := 1
+		if format == "faster" {
+			if len(a.Drivers) == 1 {
+				return nil, LapAnimationResult{}, fmt.Errorf("format faster compares 2 to 4 drivers")
+			}
+			count = 2
 		}
 		e, err := sessionEvent(ctx, svc, &a.SessionArgs)
 		if err != nil {
@@ -142,7 +171,7 @@ func registerReplay(s *mcp.Server, svc *f1.Service) {
 		if err != nil {
 			return nil, LapAnimationResult{}, err
 		}
-		r, err := svc.ReplayLaps(ctx, key, a.Drivers, a.Lap, 1)
+		r, err := svc.ReplayLaps(ctx, key, a.Drivers, a.Lap, count)
 		if err != nil {
 			return nil, LapAnimationResult{}, err
 		}
@@ -170,7 +199,8 @@ func registerReplay(s *mcp.Server, svc *f1.Service) {
 			o.Overlay.Caption = r.Weather.String()
 		}
 		var content []mcp.Content
-		if format == "gif" {
+		switch format {
+		case "gif":
 			g, err := tracks.RenderLapGIF(t, r.Laps, o)
 			if err != nil {
 				return nil, LapAnimationResult{}, err
@@ -180,17 +210,55 @@ func registerReplay(s *mcp.Server, svc *f1.Service) {
 				return nil, LapAnimationResult{}, err
 			}
 			content = append(content, &mcp.ImageContent{Data: b.Bytes(), MIMEType: "image/gif"})
-		} else {
+		case "faster":
+			o.LapEvents = false
+			img, cmp, err := tracks.RenderFaster(t, r.Laps, o)
+			if err != nil {
+				return nil, LapAnimationResult{}, err
+			}
+			if content, err = appendPNGWith(content, img, cmp.FasterColors()); err != nil {
+				return nil, LapAnimationResult{}, err
+			}
+			summariseStretches(&out, cmp)
+		default:
 			img, err := tracks.RenderLapStill(t, r.Laps, o)
 			if err != nil {
 				return nil, LapAnimationResult{}, err
 			}
-			if content, err = appendPNG(content, img); err != nil {
+			if content, err = appendPNGWith(content, img, tracks.LapStillColors(r.Laps)); err != nil {
 				return nil, LapAnimationResult{}, err
 			}
 		}
 		return &mcp.CallToolResult{Content: content}, out, nil
 	})
+}
+
+// summariseStretches adds who was fastest where to a lap comparison.
+func summariseStretches(out *LapAnimationResult, cmp tracks.LapComparison) {
+	won := make([]int, len(out.Laps))
+	gains := make([]*StretchGain, len(out.Laps))
+	for _, r := range cmp.Stretches {
+		won[r.Fastest]++
+		out.Stretches = append(out.Stretches, StretchSummary{
+			Name: r.Name, Corner: r.Corner, FromM: math.Round(r.FromM), ToM: math.Round(r.ToM),
+			Fastest: out.Laps[r.Fastest].Driver, Margin: r.Margin, Seconds: r.Seconds,
+		})
+		if g := gains[r.Fastest]; g == nil || r.Margin > g.Seconds {
+			gains[r.Fastest] = &StretchGain{Stretch: r.Name, Seconds: r.Margin}
+		}
+	}
+	for i := range out.Laps {
+		out.Laps[i].StretchesWon = &won[i]
+		out.Laps[i].BiggestGain = gains[i]
+	}
+}
+
+func appendPNGWith(content []mcp.Content, img image.Image, colors []string) ([]mcp.Content, error) {
+	var b bytes.Buffer
+	if err := tracks.EncodePNGWith(&b, img, colors); err != nil {
+		return content, err
+	}
+	return append(content, &mcp.ImageContent{Data: b.Bytes(), MIMEType: "image/png"}), nil
 }
 
 func appendPNG(content []mcp.Content, img image.Image) ([]mcp.Content, error) {

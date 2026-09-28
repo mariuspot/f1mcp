@@ -58,6 +58,16 @@ func hexColor(h string) color.RGBA {
 
 // EncodePNG writes a track image as a palette PNG.
 func EncodePNG(w io.Writer, img image.Image) error {
+	return encodePNG(w, img, palette)
+}
+
+// EncodePNGWith writes an image drawn in the track's colours plus extra
+// ones, such as team colours, as a palette PNG.
+func EncodePNGWith(w io.Writer, img image.Image, extra []string) error {
+	return encodePNG(w, img, paletteWith(extra))
+}
+
+func encodePNG(w io.Writer, img image.Image, palette color.Palette) error {
 	b := img.Bounds()
 	out := image.NewPaletted(b, palette)
 	// Images have few distinct colours, so cache the nearest-colour lookup.

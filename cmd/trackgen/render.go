@@ -154,11 +154,31 @@ func renderLaps(out string, f LapFile, headshots map[string]Headshot, headshotsD
 	} else {
 		log.Printf("ffmpeg not found, skipping the follow-camera video for %s", f.Name)
 	}
+	faster := false
+	if len(f.Laps) > 1 {
+		o.LapEvents = false
+		img, cmp, err := tracks.RenderFaster(t, f.Laps, o)
+		if err != nil {
+			return galleryLaps{}, err
+		}
+		pf, err := os.Create(filepath.Join(dir, "faster.png"))
+		if err != nil {
+			return galleryLaps{}, err
+		}
+		if err := tracks.EncodePNGWith(pf, img, cmp.FasterColors()); err != nil {
+			pf.Close()
+			return galleryLaps{}, err
+		}
+		if err := pf.Close(); err != nil {
+			return galleryLaps{}, err
+		}
+		faster = true
+	}
 	// The first frame is complete; it makes a clean poster.
 	if err := writePNG(filepath.Join(dir, "poster.png"), g.Image[0]); err != nil {
 		return galleryLaps{}, err
 	}
-	return galleryLaps{Dir: "laps/" + f.Name, Laps: f, Title: title, Video: video, Credits: credits}, nil
+	return galleryLaps{Dir: "laps/" + f.Name, Laps: f, Title: title, Video: video, Faster: faster, Credits: credits}, nil
 }
 
 // renderIncident draws an incident on its track map and nearest corner, into

@@ -24,7 +24,7 @@ It combines two public F1 APIs behind one consistent set of tools, so the model 
 | `get_track` | A circuit's layout: length, turns with names, distances and elevation, straights, sectors |
 | `get_track_map` | A PNG map of a circuit, or a close-up of one turn |
 | `get_incident` | What caused a red flag, safety car or yellow: cars that stopped, where, and the flagged sectors, drawn on the map and nearest turn (from 2023) |
-| `get_lap_animation` | One or more drivers' laps replayed on the map, with speed, gear, throttle, brake, tyre and gap: a PNG still or an animated GIF (from 2023) |
+| `get_lap_animation` | One or more drivers' laps replayed on the map, with speed, gear, throttle, brake, tyre and gap: a PNG still or an animated GIF; or a map of who was faster through each corner and straight, with the gap all round the lap (from 2023) |
 
 Each circuit layout is also a resource, `track://{circuit}/{year}`, a PNG map.
 
@@ -111,7 +111,7 @@ go run ./cmd/trackgen headshots -year 2026 -drivers RUS,VER
 
 Stored laps include the weather when they were driven, shown in their header, and each lap's tyre: compound and age in laps, shown in the timing panel. `go run ./cmd/trackgen lap -backfill` adds these to laps stored before they were.
 
-Each stored lap (in `cmd/trackgen/data/laps/`) is rendered as two GIFs over the whole track (the cars with speed, gear, throttle, brake and gap; and the same with braking zones, braking speeds and gear changes left on the track) and, if `ffmpeg` is installed, a 4:5 portrait MP4 for phones with a camera that follows the car, zoomed in like the corner images, between the timing panel and an elevation profile.
+Each stored lap (in `cmd/trackgen/data/laps/`) is rendered as two GIFs over the whole track (the cars with speed, gear, throttle, brake and gap; and the same with braking zones, braking speeds and gear changes left on the track) and, if `ffmpeg` is installed, a 4:5 portrait MP4 for phones with a camera that follows the car, zoomed in like the corner images, between the timing panel and an elevation profile. Comparisons of several laps also get a map of where each driver was faster: each corner and straight edged in the colour of the quickest driver through it, with the gap all round the lap underneath.
 
 Corner and straight names live in `internal/tracks/data/names.json`, keyed by circuit. A corner can be a single turn (`"9": "Copse"`), a complex sharing one name (`"10-13": "Maggotts and Becketts"`), or have an alternative name (`"17": {"name": "Mansell Corner", "alt": "Peraltada"}`). Straights are named by the turns at each end. Names are taken from each circuit's Wikipedia article.
 
