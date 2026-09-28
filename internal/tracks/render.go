@@ -137,7 +137,11 @@ func Render(t *Track, o Options) (image.Image, error) {
 	const margin = 150 // room for corner labels around the track
 	p := newProjection(t.Rotation).fit(t.Outline, margin, header+margin,
 		mapWidth-2*margin, mapHeight-header-2*margin)
-	dc := gg.NewContext(mapWidth, mapHeight)
+	height := mapHeight
+	if len(t.Elevation) > 0 {
+		height += mapElevationHeight
+	}
+	dc := gg.NewContext(mapWidth, height)
 	dc.SetHexColor(bgColor)
 	dc.Clear()
 
@@ -154,7 +158,8 @@ func Render(t *Track, o Options) (image.Image, error) {
 	drawCornerNames(dc, p, t, 40, 14, 20, taken)
 	drawTitle(dc, t.Name, fmt.Sprintf("%s, %s · %s", t.Locality, t.Country, o.years(t)))
 	drawSectorLegend(dc, t, mapHeight-40)
-	drawCredit(dc, mapWidth, mapHeight)
+	drawElevation(dc, t, elevationPanel{x: 48, y: mapHeight, w: mapWidth - 96, h: mapElevationHeight - 50, detailed: true})
+	drawCredit(dc, mapWidth, float64(height))
 	return dc.Image(), nil
 }
 
@@ -174,7 +179,11 @@ func RenderCorner(t *Track, number int, o Options) (image.Image, error) {
 	scale := float64(cornerHeight-header) / (2 * cornerRadius)
 	p := newProjection(t.Rotation).centre(c.Position, cornerWidth/2, header+float64(cornerHeight-header)/2, scale)
 
-	dc := gg.NewContext(cornerWidth, cornerHeight)
+	height := cornerHeight
+	if len(t.Elevation) > 0 {
+		height += cornerElevationHeight
+	}
+	dc := gg.NewContext(cornerWidth, height)
 	dc.SetHexColor(bgColor)
 	dc.Clear()
 
@@ -201,7 +210,14 @@ func RenderCorner(t *Track, number int, o Options) (image.Image, error) {
 	}
 	drawTitle(dc, title, subtitle)
 	drawInset(dc, t, c)
-	drawCredit(dc, cornerWidth, cornerHeight)
+	if len(t.Elevation) > 0 {
+		// Cover track that runs past the close-up, then draw the profile.
+		dc.SetHexColor(bgColor)
+		dc.DrawRectangle(0, cornerHeight, cornerWidth, cornerElevationHeight)
+		dc.Fill()
+		drawElevation(dc, t, elevationPanel{x: 24, y: cornerHeight + 6, w: cornerWidth - 48, h: cornerElevationHeight - 44, focus: &c})
+	}
+	drawCredit(dc, cornerWidth, float64(height))
 	return dc.Image(), nil
 }
 

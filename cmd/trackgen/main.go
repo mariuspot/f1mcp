@@ -9,7 +9,8 @@
 // downloaded; use -only or -force to re-fetch. Circuit IDs come from Jolpica,
 // matched to OpenF1 race sessions by start time. Start/finish and sector
 // lines are measured once per circuit from OpenF1 timing and car positions,
-// and stored in cmd/trackgen/lines.json.
+// and stored in cmd/trackgen/lines.json. One lap of car positions per circuit,
+// stored in cmd/trackgen/elevation, gives each track its elevation profile.
 //
 // Run render after fetch as a separate command so it picks up the new
 // embedded data.
@@ -38,10 +39,11 @@ func main() {
 		to := fs.Int("to", time.Now().Year(), "last season")
 		dir := fs.String("dir", "internal/tracks/data/circuits", "track files directory")
 		linesFile := fs.String("lines", "cmd/trackgen/lines.json", "stored timing lines")
+		elevationDir := fs.String("elevation", "cmd/trackgen/elevation", "stored elevation laps")
 		force := fs.Bool("force", false, "re-fetch every layout and timing line")
 		only := fs.String("only", "", "comma-separated circuit IDs to re-fetch")
 		fs.Parse(args)
-		o := fetchOptions{from: *from, to: *to, dir: *dir, linesFile: *linesFile, force: *force, only: map[string]bool{}}
+		o := fetchOptions{from: *from, to: *to, dir: *dir, linesFile: *linesFile, elevationDir: *elevationDir, force: *force, only: map[string]bool{}}
 		for id := range strings.SplitSeq(*only, ",") {
 			if id != "" {
 				o.only[id] = true

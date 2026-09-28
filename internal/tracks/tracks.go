@@ -41,8 +41,11 @@ type Track struct {
 	Outline []Point `json:"outline"`
 	// SectorStarts are the outline indices where sectors 2 and 3 begin
 	// (sector 1 begins at index 0). Empty if unknown.
-	SectorStarts []int    `json:"sector_starts,omitempty"`
-	Corners      []Corner `json:"corners"`
+	SectorStarts []int `json:"sector_starts,omitempty"`
+	// Elevation is the height of each outline point in metres above the
+	// lowest point of the lap. Empty if unknown.
+	Elevation []float64 `json:"elevation,omitempty"`
+	Corners   []Corner  `json:"corners"`
 	// Straights are filled from data/names.json.
 	Straights []Straight `json:"straights,omitempty"`
 }
@@ -154,7 +157,7 @@ func groupLayouts(years []int, load func(int) (*Track, error)) ([]Layout, error)
 func sameLayout(a, b *Track) bool {
 	return a.Rotation == b.Rotation && slices.Equal(a.Outline, b.Outline) &&
 		slices.Equal(a.SectorStarts, b.SectorStarts) && slices.Equal(a.Corners, b.Corners) &&
-		slices.Equal(a.Straights, b.Straights)
+		slices.Equal(a.Straights, b.Straights) && slices.Equal(a.Elevation, b.Elevation)
 }
 
 // Circuits returns the IDs of all circuits with track data, sorted.

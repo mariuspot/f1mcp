@@ -23,7 +23,7 @@ It combines two public F1 APIs behind one consistent set of tools, so the model 
 
 **[Browse the track map gallery](https://mariuspot.github.io/f1mcp/)**: every circuit and corner, rebuilt by GitHub Actions whenever the track data changes.
 
-Circuit outlines, corners, start/finish and sector lines are generated ahead of time by `cmd/trackgen` and embedded in the binary. Maps are drawn in an F1 style: asphalt with sector-coloured edges, kerbs, a chequered start/finish line and numbered corners, plus a close-up image of each corner. They are available two ways:
+Circuit outlines, corners, start/finish and sector lines are generated ahead of time by `cmd/trackgen` and embedded in the binary. Maps are drawn in an F1 style: asphalt with sector-coloured edges, kerbs, a chequered start/finish line and numbered corners, with an elevation profile of the lap underneath, plus a close-up image of each corner showing where it sits on that profile. They are available two ways:
 
 - the `get_track_map` tool, which returns the map image plus corner data, and can plot car positions for a given lap or moment
 - MCP resources (`track://<circuit>/<year>`) for browsing or attaching maps by hand
@@ -57,7 +57,7 @@ make tracks-fetch    # download layouts that aren't stored yet, then fix up all 
 make tracks-render   # draw maps, corner images and the HTML gallery into assets/tracks
 ```
 
-`fetch` only downloads what's missing. Use `go run ./cmd/trackgen fetch -only monaco,spa` to re-fetch specific circuits, or `-force` for everything. Start/finish and sector lines are measured once per circuit from OpenF1 timing and car positions, and stored in `cmd/trackgen/lines.json`. Rendered images are not committed.
+`fetch` only downloads what's missing. Use `go run ./cmd/trackgen fetch -only monaco,spa` to re-fetch specific circuits, or `-force` for everything. Start/finish and sector lines are measured once per circuit from OpenF1 timing and car positions, and stored in `cmd/trackgen/lines.json`. Elevation comes from one lap of OpenF1 car positions per circuit, stored in `cmd/trackgen/elevation/`. Rendered images are not committed.
 
 Corner and straight names live in `internal/tracks/data/names.json`, keyed by circuit. A corner can be a single turn (`"9": "Copse"`), a complex sharing one name (`"10-13": "Maggotts and Becketts"`), or have an alternative name (`"17": {"name": "Mansell Corner", "alt": "Peraltada"}`). Straights are named by the turns at each end. Names are taken from each circuit's Wikipedia article.
 

@@ -50,6 +50,32 @@ func TestAltName(t *testing.T) {
 	}
 }
 
+// Every circuit has an elevation profile matching its outline, and Spa's
+// is the biggest climb on the calendar.
+func TestElevation(t *testing.T) {
+	ids, err := Circuits()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range ids {
+		years, _ := Years(id)
+		tr, err := Load(id, years[len(years)-1])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(tr.Elevation) != len(tr.Outline) {
+			t.Errorf("%s: %d elevation points for %d outline points", id, len(tr.Elevation), len(tr.Outline))
+		}
+	}
+	spa, err := Load("spa", 2025)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := spa.ElevationChange(); c < 90 || c > 115 {
+		t.Errorf("spa elevation change = %.1f m, want about 100", c)
+	}
+}
+
 func TestLayouts(t *testing.T) {
 	got, err := Layouts("imola")
 	if err != nil {
@@ -114,8 +140,8 @@ func TestRender(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b := img.Bounds(); b.Dx() != mapWidth || b.Dy() != mapHeight {
-		t.Errorf("image is %dx%d, want %dx%d", b.Dx(), b.Dy(), mapWidth, mapHeight)
+	if b := img.Bounds(); b.Dx() != mapWidth || b.Dy() != mapHeight+mapElevationHeight {
+		t.Errorf("image is %dx%d, want %dx%d", b.Dx(), b.Dy(), mapWidth, mapHeight+mapElevationHeight)
 	}
 }
 
@@ -128,8 +154,8 @@ func TestRenderCorner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b := img.Bounds(); b.Dx() != cornerWidth || b.Dy() != cornerHeight {
-		t.Errorf("image is %dx%d, want %dx%d", b.Dx(), b.Dy(), cornerWidth, cornerHeight)
+	if b := img.Bounds(); b.Dx() != cornerWidth || b.Dy() != cornerHeight+cornerElevationHeight {
+		t.Errorf("image is %dx%d, want %dx%d", b.Dx(), b.Dy(), cornerWidth, cornerHeight+cornerElevationHeight)
 	}
 	if _, err := RenderCorner(tr, 99, Options{}); err == nil {
 		t.Error("want error for a corner that doesn't exist")

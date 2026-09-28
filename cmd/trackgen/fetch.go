@@ -26,11 +26,12 @@ const multiviewerURL = "https://api.multiviewer.app/api/v1/circuits"
 const raceMatchWindow = 6 * time.Hour
 
 type fetchOptions struct {
-	from, to  int
-	dir       string          // track files
-	linesFile string          // stored timing lines
-	force     bool            // re-fetch everything
-	only      map[string]bool // re-fetch only these circuit IDs
+	from, to     int
+	dir          string          // track files
+	linesFile    string          // stored timing lines
+	elevationDir string          // stored elevation laps
+	force        bool            // re-fetch everything
+	only         map[string]bool // re-fetch only these circuit IDs
 }
 
 func (o fetchOptions) refetch(circuitID string) bool {
@@ -81,6 +82,9 @@ func fetch(ctx context.Context, o fetchOptions) error {
 	if err := writeJSON(o.linesFile, lines); err != nil {
 		return err
 	}
+	if err := findMissingElevation(ctx, of1, o, lines); err != nil {
+		return err
+	}
 
 	files, err := filepath.Glob(filepath.Join(o.dir, "*.json"))
 	if err != nil {
@@ -95,7 +99,12 @@ func fetch(ctx context.Context, o fetchOptions) error {
 		if found, ok := lines[t.CircuitID]; ok {
 			l = &found
 		}
+		e, err := loadElevation(o.elevationDir, t.CircuitID)
+		if err != nil {
+			return err
+		}
 		normalize(t, l)
+		applyElevation(t, e)
 		if err := writeTrack(file, t); err != nil {
 			return err
 		}
@@ -298,11 +307,21 @@ func writeTrack(file string, t *tracks.Track) error {
 	return writeJSON(file, t)
 }
 
+// numberListRE matches an indented list of plain numbers (elevation
+// profiles, samples) so it can be put on one line.
+var (
+	numberListRE = regexp.MustCompile(`\[\s+-?[0-9.]+(,\s+-?[0-9.]+)*\s+\]`)
+	spaceRE      = regexp.MustCompile(`\s+`)
+)
+
 func writeJSON(file string, v any) error {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return err
 	}
 	b = pointRE.ReplaceAll(b, []byte("[$1, $2]"))
+	b = numberListRE.ReplaceAllFunc(b, func(m []byte) []byte {
+		return spaceRE.ReplaceAll(m, []byte(" "))
+	})
 	return os.WriteFile(file, append(b, '\n'), 0o644)
 }
