@@ -11,13 +11,28 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 const DefaultBaseURL = "https://api.openf1.org/v1"
 
+// OpenF1 allows 3 requests per second and 30 per minute. The per-minute
+// limiter allows a burst of 10 then one request every 3 seconds, so no
+// 60-second window exceeds 30.
+const (
+	secondInterval = 350 * time.Millisecond
+	minuteInterval = 3 * time.Second
+	minuteBurst    = 10
+	maxRetries     = 3
+)
+
 type Client struct {
-	baseURL string
-	http    *http.Client
+	baseURL  string
+	http     *http.Client
+	perSec   *rate.Limiter
+	perMin   *rate.Limiter
+	retryGap time.Duration // wait before retrying a 429 without Retry-After
 }
 
 // NewClient returns a client for baseURL, or DefaultBaseURL if empty. A nil
@@ -29,7 +44,13 @@ func NewClient(baseURL string, httpClient *http.Client) *Client {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
-	return &Client{baseURL: strings.TrimSuffix(baseURL, "/"), http: httpClient}
+	return &Client{
+		baseURL:  strings.TrimSuffix(baseURL, "/"),
+		http:     httpClient,
+		perSec:   rate.NewLimiter(rate.Every(secondInterval), 1),
+		perMin:   rate.NewLimiter(rate.Every(minuteInterval), minuteBurst),
+		retryGap: 5 * time.Second,
+	}
 }
 
 // Filters. Zero values are left out of the query. Session and meeting keys
@@ -128,6 +149,10 @@ func (c *Client) CarData(ctx context.Context, f WindowFilter) ([]CarData, error)
 	return get[CarData](ctx, c, "/car_data", f.query())
 }
 
+func (c *Client) Locations(ctx context.Context, f WindowFilter) ([]Location, error) {
+	return get[Location](ctx, c, "/location", f.query())
+}
+
 func (f SessionDriverFilter) query() query {
 	var q query
 	q.str("session_key", f.SessionKey)
@@ -175,12 +200,7 @@ func get[T any](ctx context.Context, c *Client, path string, q query) ([]T, erro
 	if len(q) > 0 {
 		u += "?" + strings.Join(q, "&")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Accept", "application/json")
-	resp, err := c.http.Do(req)
+	resp, err := c.do(ctx, u)
 	if err != nil {
 		return nil, fmt.Errorf("openf1 %s: %w", path, err)
 	}
@@ -199,6 +219,37 @@ func get[T any](ctx context.Context, c *Client, path string, q query) ([]T, erro
 		return nil, fmt.Errorf("openf1 %s: decoding response: %w", path, err)
 	}
 	return out, nil
+}
+
+// do sends a rate-limited GET, retrying when OpenF1 answers 429.
+func (c *Client) do(ctx context.Context, u string) (*http.Response, error) {
+	for attempt := 0; ; attempt++ {
+		if err := c.perSec.Wait(ctx); err != nil {
+			return nil, err
+		}
+		if err := c.perMin.Wait(ctx); err != nil {
+			return nil, err
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Accept", "application/json")
+		resp, err := c.http.Do(req)
+		if err != nil || resp.StatusCode != http.StatusTooManyRequests || attempt == maxRetries {
+			return resp, err
+		}
+		wait := c.retryGap * time.Duration(attempt+1)
+		if s, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil {
+			wait = time.Duration(s) * time.Second
+		}
+		resp.Body.Close()
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(wait):
+		}
+	}
 }
 
 func isNoResults(body []byte) bool {

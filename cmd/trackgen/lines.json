@@ -1,0 +1,170 @@
+{
+  "albert_park": {
+    "start": [-1024, -1497],
+    "sector2": [-3216, 11410],
+    "sector3": [1888, 1437],
+    "year": 2026,
+    "session_key": 11234
+  },
+  "americas": {
+    "start": [-1263, -445],
+    "sector2": [8883, 2387],
+    "sector3": [4864, 2743],
+    "year": 2025,
+    "session_key": 9888
+  },
+  "bahrain": {
+    "start": [-352, 1446],
+    "sector2": [5738, 4726],
+    "sector3": [6128, 1138],
+    "year": 2025,
+    "session_key": 10014
+  },
+  "baku": {
+    "start": [1245, -517],
+    "sector2": [-7437, -3067],
+    "sector3": [-14123, -11047],
+    "year": 2026,
+    "session_key": 11377
+  },
+  "catalunya": {
+    "start": [1332, -319],
+    "sector2": [-5342, -3269],
+    "sector3": [865, 1624],
+    "year": 2026,
+    "session_key": 11307
+  },
+  "hungaroring": {
+    "start": [-1545, -64],
+    "sector2": [-118, 7644],
+    "sector3": [3502, 1323],
+    "year": 2025,
+    "session_key": 9928
+  },
+  "imola": {
+    "start": [-1655, -1614],
+    "sector2": [-14284, -9267],
+    "sector3": [-4678, -5373],
+    "year": 2025,
+    "session_key": 9987
+  },
+  "interlagos": {
+    "start": [-3625, -5465],
+    "sector2": [2153, -2521],
+    "sector3": [3, 675],
+    "year": 2025,
+    "session_key": 9869
+  },
+  "jeddah": {
+    "start": [-1356, 394],
+    "sector2": [-3477, 18960],
+    "sector3": [-3822, 6038],
+    "year": 2025,
+    "session_key": 10022
+  },
+  "losail": {
+    "start": [-1047, -1084],
+    "sector2": [1561, 7434],
+    "sector3": [6038, 2163],
+    "year": 2025,
+    "session_key": 9850
+  },
+  "marina_bay": {
+    "start": [1026, -291],
+    "sector2": [-7188, 1603],
+    "sector3": [-9869, -927],
+    "year": 2025,
+    "session_key": 9896
+  },
+  "miami": {
+    "start": [1919, 76],
+    "sector2": [-2547, -4028],
+    "sector3": [9152, 691],
+    "year": 2026,
+    "session_key": 11280
+  },
+  "monaco": {
+    "start": [-7671, -6463],
+    "sector2": [-1779, -481],
+    "sector3": [-7215, -5901],
+    "year": 2025,
+    "session_key": 9979
+  },
+  "monza": {
+    "start": [-1359, -511],
+    "sector2": [4839, 14441],
+    "sector3": [3921, 7510],
+    "year": 2026,
+    "session_key": 11361
+  },
+  "red_bull_ring": {
+    "start": [-627, -1675],
+    "sector2": [-8084, 5102],
+    "sector3": [-3334, 847],
+    "year": 2026,
+    "session_key": 11315
+  },
+  "rodriguez": {
+    "start": [-30, 1189],
+    "sector2": [9265, -6905],
+    "sector3": [1626, -1956],
+    "year": 2025,
+    "session_key": 9877
+  },
+  "shanghai": {
+    "start": [308, -1497],
+    "sector2": [-6301, 2130],
+    "sector3": [-1037, 4856],
+    "year": 2026,
+    "session_key": 11245
+  },
+  "silverstone": {
+    "start": [-1657, 1339],
+    "sector2": [1881, 10460],
+    "sector3": [6090, 2182],
+    "year": 2026,
+    "session_key": 11326
+  },
+  "spa": {
+    "start": [-506, 1413],
+    "sector2": [8000, -10247],
+    "sector3": [-3820, -14311],
+    "year": 2026,
+    "session_key": 11334
+  },
+  "suzuka": {
+    "start": [1659, -600],
+    "sector2": [-3414, -1705],
+    "sector3": [-7606, -1041],
+    "year": 2026,
+    "session_key": 11253
+  },
+  "vegas": {
+    "start": [2200, -463],
+    "sector2": [1743, 10714],
+    "sector3": [-5440, 16089],
+    "year": 2025,
+    "session_key": 9858
+  },
+  "villeneuve": {
+    "start": [3348, 950],
+    "sector2": [-943, 2507],
+    "sector3": [-572, 14947],
+    "year": 2026,
+    "session_key": 11291
+  },
+  "yas_marina": {
+    "start": [681, 2094],
+    "sector2": [2384, 9847],
+    "sector3": [4424, -5110],
+    "year": 2025,
+    "session_key": 9839
+  },
+  "zandvoort": {
+    "start": [531, 3834],
+    "sector2": [6940, 3628],
+    "sector3": [3271, 2029],
+    "year": 2026,
+    "session_key": 11353
+  }
+}

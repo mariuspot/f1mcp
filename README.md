@@ -4,7 +4,7 @@ An [MCP](https://modelcontextprotocol.io) server for Formula 1 data, written in 
 
 It combines two public F1 APIs behind one consistent set of tools, so the model asks for things like "the 2024 Monaco race" and never has to know which API answered or how their IDs and formats differ.
 
-> **Status: work in progress.** The server runs and registers its tools, but most tools are still stubs. The OpenF1 and Jolpica clients are done; shared types, tools and track maps are next.
+> **Status: work in progress.** The server runs and registers its tools, but most tools are still stubs. The OpenF1 and Jolpica clients and track map generation are done; shared types and tools are next.
 
 ## What it covers
 
@@ -21,7 +21,7 @@ It combines two public F1 APIs behind one consistent set of tools, so the model 
 
 ### Track maps
 
-Circuit outlines, corner numbers and corner names are generated ahead of time by `cmd/trackgen` and embedded in the binary. They are available two ways:
+Circuit outlines, corners, start/finish and sector lines are generated ahead of time by `cmd/trackgen` and embedded in the binary. Maps are drawn in an F1 style: asphalt with sector-coloured edges, kerbs, a chequered start/finish line and numbered corners, plus a close-up image of each corner. They are available two ways:
 
 - the `get_track_map` tool, which returns the map image plus corner data, and can plot car positions for a given lap or moment
 - MCP resources (`track://<circuit>/<year>`) for browsing or attaching maps by hand
@@ -46,6 +46,17 @@ claude mcp add f1mcp -- docker run --rm -i f1mcp:dev
 
 For other clients, configure the command `docker run --rm -i f1mcp:dev`.
 
+### Track data
+
+Track layouts are stored in `internal/tracks/data/circuits`, one file per circuit per season. To update them:
+
+```sh
+make tracks-fetch    # download layouts that aren't stored yet, then fix up all stored ones
+make tracks-render   # draw maps and corner images into assets/tracks for review
+```
+
+`fetch` only downloads what's missing. Use `go run ./cmd/trackgen fetch -only monaco,spa` to re-fetch specific circuits, or `-force` for everything. Start/finish and sector lines are measured once per circuit from OpenF1 timing and car positions, and stored in `cmd/trackgen/lines.json`. Rendered images are not committed.
+
 ### Tests and golden files
 
 Client tests replay real API responses saved in `testdata/`. To refresh them from the live API:
@@ -63,6 +74,8 @@ internal/tools/     MCP tool definitions
 internal/openf1/    OpenF1 API client
 internal/jolpica/   Jolpica API client
 internal/golden/    golden-file helper for client tests
+internal/tracks/    circuit layouts (embedded) and track map rendering
+cmd/trackgen/       generator for the circuit layouts and images
 http/               REST Client files for exploring the APIs
 ```
 

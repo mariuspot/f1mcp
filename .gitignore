@@ -11,6 +11,9 @@
 # Build output
 bin/
 
+# Track images, regenerated with `make tracks-render`
+assets/tracks/
+
 # Test binary, built with `go test -c`
 *.test
 

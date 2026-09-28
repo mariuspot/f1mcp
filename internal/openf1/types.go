@@ -162,3 +162,14 @@ type CarData struct {
 	Brake        int       `json:"brake"`
 	DRS          int       `json:"drs"`
 }
+
+// Location is a car's position in the track's coordinate frame.
+type Location struct {
+	MeetingKey   int       `json:"meeting_key"`
+	SessionKey   int       `json:"session_key"`
+	DriverNumber int       `json:"driver_number"`
+	Date         time.Time `json:"date"`
+	X            int       `json:"x"`
+	Y            int       `json:"y"`
+	Z            int       `json:"z"`
+}

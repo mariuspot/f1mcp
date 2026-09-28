@@ -214,6 +214,26 @@ func TestCarData(t *testing.T) {
 	}
 }
 
+func TestLocations(t *testing.T) {
+	c := goldenClient(t, "location", "/location",
+		"session_key=9165&driver_number=1&date>2023-09-17T12:30:00Z&date<2023-09-17T12:30:02Z")
+	got, err := c.Locations(context.Background(), WindowFilter{
+		SessionKey:   "9165",
+		DriverNumber: 1,
+		After:        mustTime(t, "2023-09-17T12:30:00Z"),
+		Before:       mustTime(t, "2023-09-17T12:30:02Z"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 6 {
+		t.Fatalf("got %d locations, want 6", len(got))
+	}
+	if l := got[0]; l.X != -12849 || l.Y != -2568 || l.Z != 201 {
+		t.Errorf("unexpected location: %+v", l)
+	}
+}
+
 // OpenF1 answers queries that match nothing with 404 {"detail":"No results found."}.
 func TestNoResultsIsEmpty(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -229,6 +249,40 @@ func TestNoResultsIsEmpty(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Errorf("got %d laps, want 0", len(got))
+	}
+}
+
+func TestRetriesTooManyRequests(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if calls == 1 {
+			w.Header().Set("Retry-After", "0")
+			http.Error(w, `{"detail":"Rate limit exceeded."}`, http.StatusTooManyRequests)
+			return
+		}
+		io.WriteString(w, `[{"meeting_key": 1219}]`)
+	}))
+	defer srv.Close()
+
+	got, err := NewClient(srv.URL, srv.Client()).Meetings(context.Background(), MeetingsFilter{Year: 2023})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 || len(got) != 1 {
+		t.Errorf("calls = %d, meetings = %d; want 2 calls and 1 meeting", calls, len(got))
+	}
+}
+
+func TestGivesUpAfterRetries(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Retry-After", "0")
+		http.Error(w, "slow down", http.StatusTooManyRequests)
+	}))
+	defer srv.Close()
+
+	if _, err := NewClient(srv.URL, srv.Client()).Meetings(context.Background(), MeetingsFilter{Year: 2023}); err == nil {
+		t.Fatal("want error after retries, got nil")
 	}
 }
 
