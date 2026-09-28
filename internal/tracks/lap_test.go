@@ -61,3 +61,24 @@ func TestSmoothLapsSteadyGap(t *testing.T) {
 		}
 	}
 }
+
+// Braking zones start drawing as soon as braking starts, even when the
+// driver changes down during them.
+func TestLapEventsInStartOrder(t *testing.T) {
+	l := LapTrace{Duration: 10, Telemetry: [][5]float64{
+		{0, 300, 100, 0, 8},
+		{1, 280, 0, 100, 8}, // brake
+		{2, 200, 0, 100, 6}, // downshift while braking
+		{3, 150, 0, 100, 4},
+		{4, 150, 50, 0, 4}, // release
+	}}
+	ev := l.events()
+	if len(ev) == 0 || !ev[0].braking || ev[0].t != 1 {
+		t.Fatalf("first event = %+v, want braking from t=1", ev)
+	}
+	for i := 1; i < len(ev); i++ {
+		if ev[i].t < ev[i-1].t {
+			t.Errorf("event %d at %.1f s comes after one at %.1f s", i, ev[i].t, ev[i-1].t)
+		}
+	}
+}

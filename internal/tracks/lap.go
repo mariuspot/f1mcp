@@ -364,6 +364,10 @@ func (l LapTrace) events() []lapEvent {
 	if braking {
 		out = append(out, lapEvent{t: brakeFrom, until: l.Duration, braking: true, speed: brakeSpeed})
 	}
+	// A braking zone is only complete when the brake is released, after
+	// the downshifts made during it, so put everything back in start order:
+	// drawing stops at the first event still to come.
+	sort.SliceStable(out, func(i, j int) bool { return out[i].t < out[j].t })
 	return out
 }
 
