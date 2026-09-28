@@ -12,12 +12,14 @@ import (
 
 // render writes a map and one image per corner for each layout of each
 // circuit, into <out>/<circuit>-<first year>[-<last year>]/. When a circuit
-// changes, each version gets its own directory.
+// changes, each version gets its own directory. It also writes an HTML
+// gallery of them: index.html and one page per layout.
 func render(out string) error {
 	ids, err := tracks.Circuits()
 	if err != nil {
 		return err
 	}
+	var pages []galleryLayout
 	for _, id := range ids {
 		layouts, err := tracks.Layouts(id)
 		if err != nil {
@@ -37,9 +39,10 @@ func render(out string) error {
 				return err
 			}
 			log.Printf("wrote %s (map and %d corners)", dir, len(t.Corners))
+			pages = append(pages, galleryLayout{Dir: name, Years: l.Years(), Track: t})
 		}
 	}
-	return nil
+	return writeGallery(out, pages)
 }
 
 func renderLayout(dir string, t *tracks.Track, o tracks.Options) error {
