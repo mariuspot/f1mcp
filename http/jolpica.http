@@ -1,0 +1,59 @@
+# Jolpica F1 API (Ergast-compatible) — https://github.com/jolpica/jolpica-f1
+# No API key. Rate limited (roughly 4 req/s burst, a few hundred per hour).
+# Season can be a year or "current"; round can be a number or "last".
+# Pagination: ?limit=<n>&offset=<n> (default limit 30, max 100).
+
+@baseUrl = https://api.jolpi.ca/ergast/f1
+@season = 2024
+@round = 1
+
+### Schedule for a season
+GET {{baseUrl}}/{{season}}/races/
+
+### Current season schedule
+GET {{baseUrl}}/current/races/
+
+### Race results for a round
+GET {{baseUrl}}/{{season}}/{{round}}/results/
+
+### Most recent race results
+GET {{baseUrl}}/current/last/results/
+
+### Qualifying results
+GET {{baseUrl}}/{{season}}/{{round}}/qualifying/
+
+### Sprint results (only rounds with a sprint return data)
+GET {{baseUrl}}/{{season}}/sprint/?limit=100
+
+### Driver standings (end of season, or after latest round)
+GET {{baseUrl}}/{{season}}/driverstandings/
+
+### Driver standings after a specific round
+GET {{baseUrl}}/{{season}}/{{round}}/driverstandings/
+
+### Constructor standings
+GET {{baseUrl}}/{{season}}/constructorstandings/
+
+### Drivers in a season
+GET {{baseUrl}}/{{season}}/drivers/?limit=100
+
+### Constructors in a season
+GET {{baseUrl}}/{{season}}/constructors/
+
+### Circuits used in a season
+GET {{baseUrl}}/{{season}}/circuits/
+
+### Lap times for a race (all drivers, paginated)
+GET {{baseUrl}}/{{season}}/{{round}}/laps/?limit=100
+
+### Lap times for a single lap
+GET {{baseUrl}}/{{season}}/{{round}}/laps/1/
+
+### Pit stops for a race
+GET {{baseUrl}}/{{season}}/{{round}}/pitstops/?limit=100
+
+### Finishing status counts for a season
+GET {{baseUrl}}/{{season}}/status/?limit=100
+
+### A driver's results across a season (driverId from the drivers list)
+GET {{baseUrl}}/{{season}}/drivers/max_verstappen/results/

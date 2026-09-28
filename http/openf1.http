@@ -1,0 +1,71 @@
+# OpenF1 API — https://openf1.org
+# Historical data (2023 onward) is free with no API key.
+# Any field can be used as a filter; comparisons work too, e.g. speed>=315 or date>2023-09-17T12:00:00.
+# session_key=latest / meeting_key=latest select the most recent session or meeting.
+# Add &csv=true to any request to get CSV instead of JSON.
+
+@baseUrl = https://api.openf1.org/v1
+@year = 2024
+# 2023 Singapore Grand Prix race, used in OpenF1's own docs
+@sessionKey = 9161
+@meetingKey = 1219
+@driverNumber = 1
+@lap = 8
+
+### Meetings (race weekends) in a year
+GET {{baseUrl}}/meetings?year={{year}}
+
+### Meetings filtered by country
+GET {{baseUrl}}/meetings?year={{year}}&country_name=Monaco
+
+### Sessions in a meeting (practice, qualifying, sprint, race)
+GET {{baseUrl}}/sessions?meeting_key={{meetingKey}}
+
+### All race sessions in a year
+GET {{baseUrl}}/sessions?year={{year}}&session_name=Race
+
+### Chained: find a session, then use its key in the next request
+# @name raceSessions
+GET {{baseUrl}}/sessions?year={{year}}&country_name=Belgium&session_name=Race
+
+### Drivers in the session found above
+GET {{baseUrl}}/drivers?session_key={{raceSessions.response.body.$[0].session_key}}
+
+### Drivers in a session
+GET {{baseUrl}}/drivers?session_key={{sessionKey}}
+
+### Laps for one driver
+GET {{baseUrl}}/laps?session_key={{sessionKey}}&driver_number={{driverNumber}}
+
+### A single lap for one driver
+GET {{baseUrl}}/laps?session_key={{sessionKey}}&driver_number={{driverNumber}}&lap_number={{lap}}
+
+### Stints (tyre compound and age)
+GET {{baseUrl}}/stints?session_key={{sessionKey}}
+
+### Pit stops
+GET {{baseUrl}}/pit?session_key={{sessionKey}}
+
+### Race control messages (flags, penalties, safety car)
+GET {{baseUrl}}/race_control?session_key={{sessionKey}}
+
+### Weather
+GET {{baseUrl}}/weather?session_key={{sessionKey}}
+
+### Gaps and intervals (race only)
+GET {{baseUrl}}/intervals?session_key={{sessionKey}}&driver_number={{driverNumber}}
+
+### Position changes
+GET {{baseUrl}}/position?session_key={{sessionKey}}&driver_number={{driverNumber}}
+
+### Team radio clips
+GET {{baseUrl}}/team_radio?session_key={{sessionKey}}&driver_number={{driverNumber}}
+
+### Car telemetry (large: always filter by driver and a time window or value)
+GET {{baseUrl}}/car_data?session_key={{sessionKey}}&driver_number={{driverNumber}}&speed>=315
+
+### Car location on track within a time window
+GET {{baseUrl}}/location?session_key={{sessionKey}}&driver_number={{driverNumber}}&date>2023-09-17T13:03:35.200&date<2023-09-17T13:03:45.200
+
+### Latest session (whatever is most recent)
+GET {{baseUrl}}/sessions?session_key=latest
