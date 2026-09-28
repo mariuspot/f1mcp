@@ -82,3 +82,39 @@ func TestLapEventsInStartOrder(t *testing.T) {
 		}
 	}
 }
+
+// The still is the last frame of the animation: the same size, drawn in
+// full colour, with or without a known tyre compound.
+func TestRenderLapStill(t *testing.T) {
+	b, err := os.ReadFile("../../cmd/trackgen/data/laps/baku-2026-qualifying-rus-vs-ver.json")
+	if err != nil {
+		t.Skip("no stored lap sample:", err)
+	}
+	var f struct {
+		CircuitID string     `json:"circuit_id"`
+		Year      int        `json:"year"`
+		Laps      []LapTrace `json:"laps"`
+	}
+	if err := json.Unmarshal(b, &f); err != nil {
+		t.Fatal(err)
+	}
+	if f.Laps[0].Compound != "SOFT" || f.Laps[0].TyreAge != 6 {
+		t.Errorf("RUS tyre = %s %d laps old, want SOFT 6", f.Laps[0].Compound, f.Laps[0].TyreAge)
+	}
+	tr, err := Load(f.CircuitID, f.Year)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Laps[1].Compound = "UNKNOWN"
+	img, err := RenderLapStill(tr, f.Laps, Options{LapEvents: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sc, err := newLapScene(tr, f.Laps, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if img.Bounds() != sc.base.Bounds() {
+		t.Errorf("still is %v, want the animation's %v", img.Bounds(), sc.base.Bounds())
+	}
+}

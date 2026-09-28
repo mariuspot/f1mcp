@@ -23,6 +23,8 @@ It combines two public F1 APIs behind one consistent set of tools, so the model 
 | `get_car_telemetry` | A driver's lap: top speed, full throttle, and each braking zone by corner (from 2023) |
 | `get_track` | A circuit's layout: length, turns with names, distances and elevation, straights, sectors |
 | `get_track_map` | A PNG map of a circuit, or a close-up of one turn |
+| `get_incident` | What caused a red flag, safety car or yellow: cars that stopped, where, and the flagged sectors, drawn on the map and nearest turn (from 2023) |
+| `get_lap_animation` | One or more drivers' laps replayed on the map, with speed, gear, throttle, brake, tyre and gap: a PNG still or an animated GIF (from 2023) |
 
 Each circuit layout is also a resource, `track://{circuit}/{year}`, a PNG map.
 
@@ -47,7 +49,8 @@ Events are chosen by `year` and `round`: a number, `last`, `next`, or part of th
 
 Circuit outlines, corners, start/finish and sector lines are generated ahead of time by `cmd/trackgen` and embedded in the binary. Maps are drawn in an F1 style: asphalt with sector-coloured edges, kerbs, a chequered start/finish line and numbered corners, with an elevation profile of the lap underneath, plus a close-up image of each corner showing where it sits on that profile. They are available two ways:
 
-- the `get_track_map` tool, which returns the map image plus corner data, and can plot car positions for a given lap or moment
+- the `get_track_map` tool, which returns the map image plus corner data
+- the `get_incident` and `get_lap_animation` tools, which draw incidents and laps on the map
 - MCP resources (`track://<circuit>/<year>`) for browsing or attaching maps by hand
 
 ## Getting started
@@ -106,7 +109,7 @@ Driver photos and flags for the videos come from Wikimedia Commons (freely licen
 go run ./cmd/trackgen headshots -year 2026 -drivers RUS,VER
 ```
 
-Stored laps include the weather when they were driven, shown in their header. `go run ./cmd/trackgen lap -backfill-weather` adds it to laps stored before it was.
+Stored laps include the weather when they were driven, shown in their header, and each lap's tyre: compound and age in laps, shown in the timing panel. `go run ./cmd/trackgen lap -backfill` adds these to laps stored before they were.
 
 Each stored lap (in `cmd/trackgen/data/laps/`) is rendered as two GIFs over the whole track (the cars with speed, gear, throttle, brake and gap; and the same with braking zones, braking speeds and gear changes left on the track) and, if `ffmpeg` is installed, a 4:5 portrait MP4 for phones with a camera that follows the car, zoomed in like the corner images, between the timing panel and an elevation profile.
 
