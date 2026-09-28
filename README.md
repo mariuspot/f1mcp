@@ -74,6 +74,12 @@ go run ./cmd/trackgen lap -session 11373 -count 1          # the fastest lap of 
 go run ./cmd/trackgen lap -session 11373 -drivers RUS,VER  # two drivers' best laps
 ```
 
+Driver photos and flags for the videos come from Wikimedia Commons (freely licensed photos, credited on each gallery page) and flagcdn.com (public domain):
+
+```sh
+go run ./cmd/trackgen headshots -year 2026 -drivers RUS,VER
+```
+
 Each stored lap (in `cmd/trackgen/data/laps/`) is rendered as two GIFs over the whole track (the cars with speed, gear, throttle, brake and gap; and the same with braking zones, braking speeds and gear changes left on the track) and, if `ffmpeg` is installed, a 4:5 portrait MP4 for phones with a camera that follows the car, zoomed in like the corner images, between the timing panel and an elevation profile.
 
 Corner and straight names live in `internal/tracks/data/names.json`, keyed by circuit. A corner can be a single turn (`"9": "Copse"`), a complex sharing one name (`"10-13": "Maggotts and Becketts"`), or have an alternative name (`"17": {"name": "Mansell Corner", "alt": "Peraltada"}`). Straights are named by the turns at each end. Names are taken from each circuit's Wikipedia article.
@@ -107,6 +113,8 @@ This project would not be possible without these community projects:
 - [Jolpica F1](https://github.com/jolpica/jolpica-f1): historical results, standings and schedules (the successor to the Ergast API)
 - [OpenF1](https://openf1.org): detailed session data from 2023 onward
 - [MultiViewer](https://multiviewer.app): circuit outlines and corner positions used to generate track maps
+- [Wikimedia Commons](https://commons.wikimedia.org): freely licensed driver photos, credited individually in the gallery
+- [flagcdn.com](https://flagcdn.com): national flags
 
 Please respect their rate limits and terms if you run this server.
 

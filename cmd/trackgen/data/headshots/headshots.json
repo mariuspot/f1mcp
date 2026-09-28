@@ -1,0 +1,66 @@
+{
+  "ANT": {
+    "driver": "ANT",
+    "name": "Andrea Kimi Antonelli",
+    "file": "ant.jpg",
+    "page": "https://en.wikipedia.org/wiki/Andrea_Kimi_Antonelli",
+    "commons": "https://commons.wikimedia.org/wiki/File:Kimi_Antonelli_at_the_2025_US_Grand_Prix_in_Austin,_TX_(cropped).jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Kuyper",
+    "country": "it",
+    "crop": {
+      "X": 0.5,
+      "Y": 0.3,
+      "Size": 0.4
+    }
+  },
+  "LEC": {
+    "driver": "LEC",
+    "name": "Charles Leclerc",
+    "file": "lec.jpg",
+    "page": "http://en.wikipedia.org/wiki/Charles_Leclerc",
+    "commons": "https://commons.wikimedia.org/wiki/File:Charles_Leclerc_at_the_2026_Cannes_Film_Festival_(cropped).jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Gabriel Hutchinson",
+    "country": "mc",
+    "crop": {
+      "X": 0.47,
+      "Y": 0.4,
+      "Size": 0.46
+    }
+  },
+  "RUS": {
+    "driver": "RUS",
+    "name": "George Russell",
+    "file": "rus.jpg",
+    "page": "http://en.wikipedia.org/wiki/George_Russell_(racing_driver)",
+    "commons": "https://commons.wikimedia.org/wiki/File:KingsLeonSilverstne040724_(28_of_112)_(53838006028)_(cropped).jpg",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0",
+    "artist": "Raph_PH",
+    "country": "gb",
+    "crop": {
+      "X": 0.51,
+      "Y": 0.27,
+      "Size": 0.42
+    }
+  },
+  "VER": {
+    "driver": "VER",
+    "name": "Max Verstappen",
+    "file": "ver.jpg",
+    "page": "http://en.wikipedia.org/wiki/Max_Verstappen",
+    "commons": "https://commons.wikimedia.org/wiki/File:2024-08-25_Motorsport,_Formel_1,_Gro%C3%9Fer_Preis_der_Niederlande_2024_STP_3973_by_Stepro_(medium_crop).jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "artist": "Steffen Prößdorf",
+    "country": "nl",
+    "crop": {
+      "X": 0.56,
+      "Y": 0.25,
+      "Size": 0.42
+    }
+  }
+}

@@ -26,6 +26,11 @@ type LapTrace struct {
 	// Telemetry is [t, speed km/h, throttle %, brake %, gear].
 	Telemetry [][5]float64 `json:"telemetry"`
 
+	// Headshot and Flag, if set, are drawn in the timing band: a square
+	// photo of the driver and their national flag.
+	Headshot image.Image `json:"-"`
+	Flag     image.Image `json:"-"`
+
 	// distances, when set by smoothLap, is the exact distance round the lap
 	// of each position, in metres.
 	distances []float64
@@ -472,17 +477,29 @@ func drawLapHUD(dc *gg.Context, laps []LapTrace, progress [][]float64, T, top, r
 		dc.DrawRoundedRectangle(pad, ry+4, 6, lapRowHeight-12, 2)
 		dc.Fill()
 
+		x := pad + 14
+		if l.Headshot != nil {
+			dc.DrawImageAnchored(roundHeadshot(l.Headshot, l.Color), int(x+15), int(ry+lapRowHeight/2-2), 0.5, 0.5)
+			x += 38
+		}
 		dc.SetFontFace(face(boldFont, 16))
 		dc.SetHexColor(textColor)
-		dc.DrawString(l.Driver, pad+14, ry+22)
+		dc.DrawString(l.Driver, x, ry+22)
+		if l.Flag != nil {
+			dc.DrawImageAnchored(smallFlag(l.Flag), int(x+44), int(ry+17), 0, 0.5)
+			x += 26
+		}
 		dc.SetFontFace(face(regularFont, 15))
-		dc.DrawString(fmt.Sprintf("%3.0f km/h", tel[1]), pad+64, ry+22)
-		dc.DrawString(fmt.Sprintf("G%.0f", tel[4]), pad+150, ry+22)
+		dc.DrawString(fmt.Sprintf("%3.0f km/h", tel[1]), x+50, ry+22)
+		dc.DrawString(fmt.Sprintf("G%.0f", tel[4]), x+136, ry+22)
 
 		// Throttle bar, then a light for the brake, which OpenF1 only
 		// reports as on or off.
-		const bw = 120.0
-		bx, by := pad+222, ry+13
+		bw := 120.0
+		if l.Headshot != nil {
+			bw = 90
+		}
+		bx, by := x+208, ry+13
 		dc.SetFontFace(face(regularFont, 11))
 		dc.SetHexColor(subtleColor)
 		dc.DrawStringAnchored("THR", bx, by+4, 1.15, 0.35)
@@ -526,6 +543,46 @@ func drawLapHUD(dc *gg.Context, laps []LapTrace, progress [][]float64, T, top, r
 			dc.DrawStringAnchored("ref", right, ry+22, 1, 0)
 		}
 	}
+}
+
+var (
+	headshotCache = map[image.Image]image.Image{}
+	flagCache     = map[image.Image]image.Image{}
+)
+
+// roundHeadshot returns a 30 px round version of a headshot with a ring in
+// the team colour, made once per photo.
+func roundHeadshot(img image.Image, color string) image.Image {
+	if r, ok := headshotCache[img]; ok {
+		return r
+	}
+	const size = 32
+	dc := gg.NewContext(size, size)
+	dc.DrawCircle(size/2, size/2, size/2-2)
+	dc.Clip()
+	scaled := image.NewRGBA(image.Rect(0, 0, size, size))
+	xdraw.CatmullRom.Scale(scaled, scaled.Bounds(), img, img.Bounds(), xdraw.Src, nil)
+	dc.DrawImage(scaled, 0, 0)
+	dc.ResetClip()
+	dc.SetHexColor(hex(color))
+	dc.SetLineWidth(2)
+	dc.DrawCircle(size/2, size/2, size/2-2)
+	dc.Stroke()
+	headshotCache[img] = dc.Image()
+	return headshotCache[img]
+}
+
+// smallFlag returns a 20 px wide version of a flag, made once per flag.
+func smallFlag(img image.Image) image.Image {
+	if r, ok := flagCache[img]; ok {
+		return r
+	}
+	b := img.Bounds()
+	h := max(1, b.Dy()*20/b.Dx())
+	scaled := image.NewRGBA(image.Rect(0, 0, 20, h))
+	xdraw.CatmullRom.Scale(scaled, scaled.Bounds(), img, b, xdraw.Src, nil)
+	flagCache[img] = scaled
+	return scaled
 }
 
 func formatLapTime(s float64) string {

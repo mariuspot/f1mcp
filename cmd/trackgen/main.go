@@ -82,13 +82,26 @@ func main() {
 		if err := findLaps(ctx, *session, splitList(*drivers), *count, *dir); err != nil {
 			log.Fatal(err)
 		}
+	case "headshots":
+		fs := flag.NewFlagSet("headshots", flag.ExitOnError)
+		year := fs.Int("year", time.Now().Year(), "season the drivers raced in")
+		drivers := fs.String("drivers", "", "comma-separated driver codes, e.g. RUS,VER")
+		dir := fs.String("dir", "cmd/trackgen/data/headshots", "stored headshots")
+		fs.Parse(args)
+		if *drivers == "" {
+			usage()
+		}
+		if err := findHeadshots(ctx, *year, splitList(*drivers), *dir); err != nil {
+			log.Fatal(err)
+		}
 	case "render":
 		fs := flag.NewFlagSet("render", flag.ExitOnError)
 		out := fs.String("out", "assets/tracks", "output directory")
 		incidents := fs.String("incidents", "cmd/trackgen/data/incidents", "stored incidents")
 		laps := fs.String("laps", "cmd/trackgen/data/laps", "stored laps")
+		headshots := fs.String("headshots", "cmd/trackgen/data/headshots", "stored headshots")
 		fs.Parse(args)
-		if err := render(*out, *incidents, *laps); err != nil {
+		if err := render(*out, *incidents, *laps, *headshots); err != nil {
 			log.Fatal(err)
 		}
 	default:
@@ -117,6 +130,6 @@ func carNumbers(s string) []int {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: trackgen fetch [-from 2023] [-to YEAR] [-only IDS] [-force]\n       trackgen incident -session KEY [-event red|sc|vsc|yellow] [-lap N] [-drivers N,N]\n       trackgen lap -session KEY [-count N | -drivers N,N]\n       trackgen render [-out DIR]")
+	fmt.Fprintln(os.Stderr, "usage: trackgen fetch [-from 2023] [-to YEAR] [-only IDS] [-force]\n       trackgen incident -session KEY [-event red|sc|vsc|yellow] [-lap N] [-drivers N,N]\n       trackgen lap -session KEY [-count N | -drivers N,N]\n       trackgen headshots -drivers CODES [-year YEAR]\n       trackgen render [-out DIR]")
 	os.Exit(2)
 }

@@ -46,6 +46,8 @@ type galleryLaps struct {
 	Title string // e.g. "NOR 1:41.234 vs PIA 1:41.456"
 	Laps  LapFile
 	Video bool // whether the follow-camera video was made
+	// Credits are the drivers' photos used in the video.
+	Credits []Headshot
 }
 
 // writeGallery writes index.html listing every layout, incident and lap
@@ -216,6 +218,10 @@ var lapsTmpl = template.Must(template.New("laps").Parse(`<!doctype html>
 <h2>With braking and gear changes</h2>
 <p class="muted">Red marks where each driver was on the brakes, with their speed in km/h as braking started; dots show each gear change and the new gear.</p>
 <img class="map" src="lap-events.gif" alt="Animation of {{.Title}} with braking and gear changes">
+{{if .Credits}}<h2>Photo credits</h2>
+<p class="muted">{{range .Credits}}{{.Name}}: photo by {{.Artist}}, <a href="{{.LicenseURL}}">{{.License}}</a>, <a href="{{.Commons}}">via Wikimedia Commons</a>.<br>{{end}}
+The video includes these photos and is shared under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>.
+Flags: <a href="https://flagcdn.com">flagcdn.com</a> (public domain).</p>{{end}}
 ` + galleryFooter + `
 </main>
 </body>
