@@ -247,3 +247,19 @@ func TestNamesMatchTracks(t *testing.T) {
 		}
 	}
 }
+
+func TestApproaching(t *testing.T) {
+	tr, err := Load("spa", 2025)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Just before La Source, on the run from the Bus Stop.
+	t1 := tr.Corners[0]
+	i := nearestIndexForTest(tr.Outline, t1.Position)
+	loc := tr.Locate(tr.Outline[(i-12+len(tr.Outline))%len(tr.Outline)])
+	if got := loc.Approaching(); got != "Turn 1, La Source" {
+		t.Errorf("approaching = %q (location %q), want Turn 1, La Source", got, loc)
+	}
+}
+
+func nearestIndexForTest(pts []Point, p Point) int { return nearestIndex(pts, p) }
