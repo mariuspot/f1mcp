@@ -24,7 +24,7 @@ var data embed.FS
 // the circuit files.
 const (
 	CircuitsDir = "data/circuits"
-	CornersFile = "data/corners.json"
+	NamesFile   = "data/names.json"
 )
 
 var ErrUnknownCircuit = errors.New("unknown circuit")
@@ -43,6 +43,15 @@ type Track struct {
 	// (sector 1 begins at index 0). Empty if unknown.
 	SectorStarts []int    `json:"sector_starts,omitempty"`
 	Corners      []Corner `json:"corners"`
+	// Straights are filled from data/names.json.
+	Straights []Straight `json:"straights,omitempty"`
+}
+
+// Straight is a named straight between two corners.
+type Straight struct {
+	Name string `json:"name"`
+	From int    `json:"from"` // corner number at the start of the straight
+	To   int    `json:"to"`   // corner number at the end
 }
 
 // Point is an [x, y] position in OpenF1's track coordinate frame.
@@ -50,8 +59,12 @@ type Point [2]float64
 
 type Corner struct {
 	Number int `json:"number"`
-	// Name is filled from data/corners.json when the corner has one.
-	Name     string `json:"name,omitempty"`
+	// Name is filled from data/names.json when the corner has one. Corners
+	// in a named complex (e.g. Raidillon, turns 3-4) share its name.
+	Name string `json:"name,omitempty"`
+	// AltName is another name the corner is known by, e.g. Peraltada for
+	// Mexico City's Mansell Corner.
+	AltName  string `json:"alt_name,omitempty"`
 	Position Point  `json:"position"`
 	// Angle is the direction, in degrees, to place the corner's label away
 	// from the track.
@@ -84,12 +97,14 @@ func Load(circuitID string, year int) (*Track, error) {
 	if err := json.Unmarshal(b, &t); err != nil {
 		return nil, fmt.Errorf("decoding %s %d: %w", circuitID, pick, err)
 	}
-	names, err := cornerNames()
+	names, err := loadNames()
 	if err != nil {
 		return nil, err
 	}
-	for i, c := range t.Corners {
-		t.Corners[i].Name = names[circuitID][strconv.Itoa(c.Number)]
+	if n, ok := names[circuitID]; ok {
+		if err := n.apply(&t); err != nil {
+			return nil, fmt.Errorf("%s in %s: %w", circuitID, NamesFile, err)
+		}
 	}
 	return &t, nil
 }
@@ -138,7 +153,8 @@ func groupLayouts(years []int, load func(int) (*Track, error)) ([]Layout, error)
 
 func sameLayout(a, b *Track) bool {
 	return a.Rotation == b.Rotation && slices.Equal(a.Outline, b.Outline) &&
-		slices.Equal(a.SectorStarts, b.SectorStarts) && slices.Equal(a.Corners, b.Corners)
+		slices.Equal(a.SectorStarts, b.SectorStarts) && slices.Equal(a.Corners, b.Corners) &&
+		slices.Equal(a.Straights, b.Straights)
 }
 
 // Circuits returns the IDs of all circuits with track data, sorted.
@@ -192,15 +208,69 @@ func index() (map[string][]int, error) {
 	return all, nil
 }
 
-// cornerNames maps circuit ID to corner number to name.
-func cornerNames() (map[string]map[string]string, error) {
-	b, err := data.ReadFile(CornersFile)
+// circuitNames are the corner and straight names of one circuit in
+// data/names.json. Corner keys are a turn number ("5") or a range of turns
+// sharing a name ("3-4").
+type circuitNames struct {
+	Corners   map[string]cornerName `json:"corners"`
+	Straights []Straight            `json:"straights"`
+}
+
+// cornerName is either a plain name ("Copse") or a name with an
+// alternative ({"name": "Mansell Corner", "alt": "Peraltada"}).
+type cornerName struct {
+	Name string `json:"name"`
+	Alt  string `json:"alt"`
+}
+
+func (n *cornerName) UnmarshalJSON(b []byte) error {
+	if len(b) > 0 && b[0] == '"' {
+		return json.Unmarshal(b, &n.Name)
+	}
+	type plain cornerName
+	return json.Unmarshal(b, (*plain)(n))
+}
+
+func loadNames() (map[string]circuitNames, error) {
+	b, err := data.ReadFile(NamesFile)
 	if err != nil {
 		return nil, err
 	}
-	var names map[string]map[string]string
+	var names map[string]circuitNames
 	if err := json.Unmarshal(b, &names); err != nil {
-		return nil, fmt.Errorf("decoding %s: %w", CornersFile, err)
+		return nil, fmt.Errorf("decoding %s: %w", NamesFile, err)
 	}
 	return names, nil
+}
+
+func (n circuitNames) apply(t *Track) error {
+	for key, name := range n.Corners {
+		from, to, err := parseTurns(key)
+		if err != nil {
+			return err
+		}
+		for i, c := range t.Corners {
+			if c.Number >= from && c.Number <= to {
+				t.Corners[i].Name = name.Name
+				t.Corners[i].AltName = name.Alt
+			}
+		}
+	}
+	t.Straights = n.Straights
+	return nil
+}
+
+// parseTurns parses "5" or "3-4".
+func parseTurns(key string) (from, to int, err error) {
+	a, b, isRange := strings.Cut(key, "-")
+	if from, err = strconv.Atoi(a); err != nil {
+		return 0, 0, fmt.Errorf("bad turn %q", key)
+	}
+	to = from
+	if isRange {
+		if to, err = strconv.Atoi(b); err != nil || to < from {
+			return 0, 0, fmt.Errorf("bad turn range %q", key)
+		}
+	}
+	return from, to, nil
 }

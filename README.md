@@ -57,6 +57,8 @@ make tracks-render   # draw maps and corner images into assets/tracks for review
 
 `fetch` only downloads what's missing. Use `go run ./cmd/trackgen fetch -only monaco,spa` to re-fetch specific circuits, or `-force` for everything. Start/finish and sector lines are measured once per circuit from OpenF1 timing and car positions, and stored in `cmd/trackgen/lines.json`. Rendered images are not committed.
 
+Corner and straight names live in `internal/tracks/data/names.json`, keyed by circuit. A corner can be a single turn (`"9": "Copse"`), a complex sharing one name (`"10-13": "Maggotts and Becketts"`), or have an alternative name (`"17": {"name": "Mansell Corner", "alt": "Peraltada"}`). Straights are named by the turns at each end. Names are taken from each circuit's Wikipedia article.
+
 ### Tests and golden files
 
 Client tests replay real API responses saved in `testdata/`. To refresh them from the live API:

@@ -9,6 +9,7 @@ import (
 	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/gobold"
+	"golang.org/x/image/font/gofont/goitalic"
 	"golang.org/x/image/font/gofont/goregular"
 )
 
@@ -44,6 +45,7 @@ var (
 
 	regularFont = mustParse(goregular.TTF)
 	boldFont    = mustParse(gobold.TTF)
+	italicFont  = mustParse(goitalic.TTF)
 )
 
 func mustParse(ttf []byte) *truetype.Font {
@@ -140,9 +142,16 @@ func Render(t *Track, o Options) (image.Image, error) {
 	dc.Clear()
 
 	drawTrack(dc, p, t, 14)
-	for _, c := range t.Corners {
-		drawCornerMarker(dc, p, c, 40, 14, false, true)
+	var taken []rect
+	for _, st := range t.Straights {
+		if r, ok := drawStraightName(dc, p, t, st, 14+2*3); ok {
+			taken = append(taken, r)
+		}
 	}
+	for _, c := range t.Corners {
+		drawCornerMarker(dc, p, c, 40, 14, false)
+	}
+	drawCornerNames(dc, p, t, 40, 14, 20, taken)
 	drawTitle(dc, t.Name, fmt.Sprintf("%s, %s · %s", t.Locality, t.Country, o.years(t)))
 	drawSectorLegend(dc, t, mapHeight-40)
 	drawCredit(dc, mapWidth, mapHeight)
@@ -171,18 +180,26 @@ func RenderCorner(t *Track, number int, o Options) (image.Image, error) {
 
 	drawTrack(dc, p, t, trackWidth*scale)
 	drawDirectionChevrons(dc, p, t, c, trackWidth*scale)
+	for _, st := range t.Straights {
+		drawStraightName(dc, p, t, st, trackWidth*scale*1.4)
+	}
+
 	for _, other := range t.Corners {
 		if other.Number != number {
-			drawCornerMarker(dc, p, other, 70, 16, false, false)
+			drawCornerMarker(dc, p, other, 70, 16, false)
 		}
 	}
-	drawCornerMarker(dc, p, c, 80, 24, true, false)
+	drawCornerMarker(dc, p, c, 80, 24, true)
 
 	title := fmt.Sprintf("Turn %d", c.Number)
 	if c.Name != "" {
 		title += " · " + c.Name
 	}
-	drawTitle(dc, title, fmt.Sprintf("%s · %s", t.Name, o.years(t)))
+	subtitle := fmt.Sprintf("%s · %s", t.Name, o.years(t))
+	if c.AltName != "" {
+		subtitle = "Also known as " + c.AltName + " · " + subtitle
+	}
+	drawTitle(dc, title, subtitle)
 	drawInset(dc, t, c)
 	drawCredit(dc, cornerWidth, cornerHeight)
 	return dc.Image(), nil
@@ -373,12 +390,86 @@ func drawDirectionChevrons(dc *gg.Context, p projection, t *Track, c Corner, wid
 	}
 }
 
+// drawStraightName writes a straight's name alongside it, halfway between
+// its corners, turned to follow the track and kept upright. width is the
+// drawn track width in pixels.
+func drawStraightName(dc *gg.Context, p projection, t *Track, st Straight, width float64) (rect, bool) {
+	from, okFrom := cornerIndex(t, st.From)
+	to, okTo := cornerIndex(t, st.To)
+	if !okFrom || !okTo {
+		return rect{}, false
+	}
+	n := len(t.Outline)
+	if to < from {
+		to += n // the straight crosses the start/finish line
+	}
+	mid := (from + to) / 2
+	x, y := p.point(t.Outline[mid%n])
+	ax, ay := p.point(t.Outline[(mid-3+n)%n])
+	bx, by := p.point(t.Outline[(mid+3)%n])
+	dx, dy := bx-ax, by-ay
+	l := math.Hypot(dx, dy)
+	if l == 0 {
+		return rect{}, false
+	}
+	dx, dy = dx/l, dy/l
+
+	// Put the name on the outside of the circuit, away from its centre.
+	nx, ny := -dy, dx
+	cx, cy := outlineCentre(p, t.Outline)
+	if (x-cx)*nx+(y-cy)*ny < 0 {
+		nx, ny = -nx, -ny
+	}
+	offset := width/2 + 16
+	lx, ly := x+nx*offset, y+ny*offset
+
+	angle := math.Atan2(dy, dx)
+	if angle > math.Pi/2 {
+		angle -= math.Pi
+	} else if angle < -math.Pi/2 {
+		angle += math.Pi
+	}
+	dc.SetFontFace(face(italicFont, 17))
+	w, h := dc.MeasureString(st.Name)
+	dc.Push()
+	dc.RotateAbout(angle, lx, ly)
+	dc.SetHexColor(subtleColor)
+	dc.DrawStringAnchored(st.Name, lx, ly, 0.5, 0.35)
+	dc.Pop()
+
+	// Bounding box of the rotated text.
+	cos, sin := math.Abs(math.Cos(angle)), math.Abs(math.Sin(angle))
+	bw, bh := w*cos+h*sin, w*sin+h*cos
+	return rect{lx - bw/2, ly - bh/2, lx + bw/2, ly + bh/2}, true
+}
+
+func cornerIndex(t *Track, number int) (int, bool) {
+	for _, c := range t.Corners {
+		if c.Number == number {
+			return nearestIndex(t.Outline, c.Position), true
+		}
+	}
+	return 0, false
+}
+
+// outlineCentre returns the centre of the outline's bounding box in pixels.
+func outlineCentre(p projection, outline []Point) (float64, float64) {
+	minX, minY := math.Inf(1), math.Inf(1)
+	maxX, maxY := math.Inf(-1), math.Inf(-1)
+	for _, pt := range outline {
+		x, y := p.point(pt)
+		minX, maxX = min(minX, x), max(maxX, x)
+		minY, maxY = min(minY, y), max(maxY, y)
+	}
+	return (minX + maxX) / 2, (minY + maxY) / 2
+}
+
 // drawCornerMarker draws a corner's number in a circle away from the track,
 // linked to it by a short line. The highlighted corner is drawn in red.
-func drawCornerMarker(dc *gg.Context, p projection, c Corner, distance, radius float64, highlight, withName bool) {
+func drawCornerMarker(dc *gg.Context, p projection, c Corner, distance, radius float64, highlight bool) {
 	x, y := p.point(c.Position)
 	dx, dy := p.direction(c.Angle)
-	cx, cy := x+dx*distance, y+dy*distance
+	cx, cy := markerCentre(p, c, distance)
 
 	dc.SetHexColor(leaderColor)
 	dc.SetLineWidth(2)
@@ -400,13 +491,107 @@ func drawCornerMarker(dc *gg.Context, p projection, c Corner, distance, radius f
 	}
 	dc.DrawStringAnchored(fmt.Sprint(c.Number), cx, cy, 0.5, 0.35)
 
-	if withName && c.Name != "" {
-		dc.SetFontFace(face(regularFont, 16))
+}
+
+func markerCentre(p projection, c Corner, distance float64) (float64, float64) {
+	x, y := p.point(c.Position)
+	dx, dy := p.direction(c.Angle)
+	return x + dx*distance, y + dy*distance
+}
+
+type rect struct{ x0, y0, x1, y1 float64 }
+
+func (r rect) overlaps(o rect) bool {
+	return r.x0 < o.x1 && o.x0 < r.x1 && r.y0 < o.y1 && o.y0 < r.y1
+}
+
+func (r rect) contains(x, y, pad float64) bool {
+	return x > r.x0-pad && x < r.x1+pad && y > r.y0-pad && y < r.y1+pad
+}
+
+// drawCornerNames writes corner names beside their markers. Each name goes
+// on whichever side of its marker overlaps least with other markers, names
+// already placed and the track. A complex's name is shown once, at its first
+// turn.
+func drawCornerNames(dc *gg.Context, p projection, t *Track, distance, radius, trackWidth float64, taken []rect) {
+	nameFace, altFace := face(regularFont, 16), face(italicFont, 14)
+	dc.SetFontFace(nameFace)
+	for _, c := range t.Corners {
+		cx, cy := markerCentre(p, c, distance)
+		taken = append(taken, rect{cx - radius, cy - radius, cx + radius, cy + radius})
+	}
+	var track [][2]float64
+	for _, pt := range t.Outline {
+		x, y := p.point(pt)
+		track = append(track, [2]float64{x, y})
+	}
+	W, H := float64(dc.Width()), float64(dc.Height())
+
+	for i, c := range t.Corners {
+		if c.Name == "" || (i > 0 && t.Corners[i-1].Name == c.Name) {
+			continue
+		}
+		cx, cy := markerCentre(p, c, distance)
+		dx, _ := p.direction(c.Angle)
+		w, h := dc.MeasureString(c.Name)
+		lineH := h
+		if c.AltName != "" {
+			dc.SetFontFace(altFace)
+			aw, ah := dc.MeasureString(c.AltName)
+			dc.SetFontFace(nameFace)
+			w = max(w, aw)
+			h += ah + 4
+		}
+		gap := radius + 8
+		right := rect{cx + gap, cy - h/2, cx + gap + w, cy + h/2}
+		left := rect{cx - gap - w, cy - h/2, cx - gap, cy + h/2}
+		above := rect{cx - w/2, cy - gap - h, cx + w/2, cy - gap}
+		below := rect{cx - w/2, cy + gap, cx + w/2, cy + gap + h}
+		d := gap * 0.7
+		upRight := rect{cx + d, cy - d - h, cx + d + w, cy - d}
+		upLeft := rect{cx - d - w, cy - d - h, cx - d, cy - d}
+		downRight := rect{cx + d, cy + d, cx + d + w, cy + d + h}
+		downLeft := rect{cx - d - w, cy + d, cx - d, cy + d + h}
+		candidates := []rect{right, left, above, below, upRight, upLeft, downRight, downLeft}
+		if dx < 0 {
+			candidates = []rect{left, right, above, below, upLeft, upRight, downLeft, downRight}
+		}
+
+		best, bestScore := candidates[0], math.Inf(1)
+		for _, r := range candidates {
+			score := 0.0
+			for _, o := range taken {
+				if r.overlaps(o) {
+					score += 10
+				}
+			}
+			for _, pt := range track {
+				if r.contains(pt[0], pt[1], trackWidth/2) {
+					score += 2
+				}
+			}
+			if r.x0 < 0 || r.y0 < header || r.x1 > W || r.y1 > H {
+				score += 100
+			}
+			if score < bestScore {
+				best, bestScore = r, score
+			}
+		}
+		taken = append(taken, best)
+		// Align text to the marker side of the box.
+		ax, tx := 0.0, best.x0
+		if best.x1 <= cx-radius {
+			ax, tx = 1, best.x1
+		} else if best.x0 < cx && best.x1 > cx {
+			ax, tx = 0.5, (best.x0+best.x1)/2
+		}
 		dc.SetHexColor(textColor)
-		if dx >= 0 {
-			dc.DrawStringAnchored(c.Name, cx+radius+8, cy, 0, 0.35)
-		} else {
-			dc.DrawStringAnchored(c.Name, cx-radius-8, cy, 1, 0.35)
+		dc.DrawStringAnchored(c.Name, tx, best.y0+lineH/2, ax, 0.35)
+		if c.AltName != "" {
+			dc.SetFontFace(altFace)
+			dc.SetHexColor(subtleColor)
+			dc.DrawStringAnchored(c.AltName, tx, best.y1-(h-lineH-4)/2, ax, 0.35)
+			dc.SetFontFace(nameFace)
 		}
 	}
 }

@@ -39,6 +39,17 @@ func TestLoadFallsBackToNearestYear(t *testing.T) {
 	}
 }
 
+func TestAltName(t *testing.T) {
+	tr, err := Load("rodriguez", 2024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := tr.Corners[len(tr.Corners)-1]
+	if c.Number != 17 || c.Name != "Mansell Corner" || c.AltName != "Peraltada" {
+		t.Errorf("turn 17 = %+v", c)
+	}
+}
+
 func TestLayouts(t *testing.T) {
 	got, err := Layouts("imola")
 	if err != nil {
@@ -144,6 +155,46 @@ func TestCornerNumbersUnique(t *testing.T) {
 					t.Errorf("%s %d: turn %d appears twice", id, y, c.Number)
 				}
 				seen[c.Number] = true
+			}
+		}
+	}
+}
+
+// Every name in data/names.json refers to a circuit and turns that exist.
+func TestNamesMatchTracks(t *testing.T) {
+	names, err := loadNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, n := range names {
+		years, err := Years(id)
+		if err != nil {
+			t.Errorf("%s: %v", id, err)
+			continue
+		}
+		tr, err := Load(id, years[len(years)-1])
+		if err != nil {
+			t.Fatal(err)
+		}
+		turns := map[int]bool{}
+		for _, c := range tr.Corners {
+			turns[c.Number] = true
+		}
+		for key := range n.Corners {
+			from, to, err := parseTurns(key)
+			if err != nil {
+				t.Errorf("%s: %v", id, err)
+				continue
+			}
+			for turn := from; turn <= to; turn++ {
+				if !turns[turn] {
+					t.Errorf("%s: %q names turn %d, which doesn't exist", id, key, turn)
+				}
+			}
+		}
+		for _, s := range n.Straights {
+			if !turns[s.From] || !turns[s.To] {
+				t.Errorf("%s: straight %q runs from turn %d to %d, which don't both exist", id, s.Name, s.From, s.To)
 			}
 		}
 	}

@@ -1,0 +1,258 @@
+{
+  "americas": {
+    "corners": {
+      "1": "Big Red"
+    }
+  },
+  "bahrain": {
+    "corners": {
+      "1": "Schumacher Corner"
+    }
+  },
+  "baku": {
+    "straights": [
+      {
+        "name": "Neftchilar Avenue",
+        "from": 16,
+        "to": 1
+      }
+    ]
+  },
+  "catalunya": {
+    "corners": {
+      "1": "Elf",
+      "3": "Renault",
+      "4": "Repsol",
+      "5": "Seat",
+      "9": "Campsa",
+      "10": "La Caixa"
+    }
+  },
+  "hungaroring": {
+    "corners": {
+      "1": "Nelson Piquet Sr.",
+      "2": "Lewis Hamilton",
+      "4": "Nigel Mansell",
+      "11": "Jean Alesi",
+      "12": "Michael Schumacher",
+      "13": "Ayrton Senna"
+    }
+  },
+  "imola": {
+    "corners": {
+      "2-4": "Tamburello",
+      "5-6": "Villeneuve",
+      "7": "Tosa",
+      "11-13": "Acque Minerali",
+      "14-15": "Variante Alta",
+      "17-18": "Rivazza",
+      "19": "Variante Bassa"
+    }
+  },
+  "interlagos": {
+    "corners": {
+      "1-2": "S do Senna",
+      "3": "Curva do Sol",
+      "4-5": "Descida do Lago",
+      "6-7": "Ferradura",
+      "8": "Laranjinha",
+      "9": "Pinheirinho",
+      "10": "Bico de Pato",
+      "11": "Mergulho",
+      "12": "Junção",
+      "13": "Café",
+      "14": "Subida dos Boxes",
+      "15": "Arquibancadas"
+    },
+    "straights": [
+      {
+        "name": "Reta Oposta",
+        "from": 3,
+        "to": 4
+      },
+      {
+        "name": "Tribunas",
+        "from": 15,
+        "to": 1
+      }
+    ]
+  },
+  "marina_bay": {
+    "corners": {
+      "1": "Sheares",
+      "7": "Memorial"
+    }
+  },
+  "monaco": {
+    "corners": {
+      "1": "Sainte-Dévote",
+      "3": "Massenet",
+      "4": "Casino Square",
+      "5": "Mirabeau",
+      "6": "Fairmont Hairpin",
+      "7-8": "Portier",
+      "9": "Tunnel",
+      "10-11": "Nouvelle Chicane",
+      "12": "Tabac",
+      "13-16": "Piscine",
+      "18": "La Rascasse",
+      "19": "Virage Antony Noghès"
+    },
+    "straights": [
+      {
+        "name": "Boulevard Albert Ier",
+        "from": 19,
+        "to": 1
+      },
+      {
+        "name": "Avenue d'Ostende",
+        "from": 1,
+        "to": 3
+      },
+      {
+        "name": "Avenue des Beaux Arts",
+        "from": 4,
+        "to": 5
+      }
+    ]
+  },
+  "monza": {
+    "corners": {
+      "1-2": "Variante del Rettifilo",
+      "3": "Curva Grande",
+      "4-5": "Variante della Roggia",
+      "6-7": "Curve di Lesmo",
+      "8-10": "Variante Ascari",
+      "11": "Curva Parabolica Alboreto"
+    }
+  },
+  "red_bull_ring": {
+    "corners": {
+      "1": "Niki Lauda Turn"
+    }
+  },
+  "rodriguez": {
+    "corners": {
+      "1-3": "Ese Moisés Solana",
+      "6": "Recorte Rebaque",
+      "12": "Adrián Fernández Corner",
+      "17": {
+        "name": "Mansell Corner",
+        "alt": "Peraltada"
+      }
+    }
+  },
+  "silverstone": {
+    "corners": {
+      "1": "Abbey",
+      "2": "Farm",
+      "3": "Village",
+      "4": "The Loop",
+      "5": "Aintree",
+      "6": "Brooklands",
+      "7": "Luffield",
+      "8": "Woodcote",
+      "9": "Copse",
+      "10-13": "Maggotts and Becketts",
+      "14": "Chapel",
+      "15": "Stowe",
+      "16": "Vale",
+      "17-18": "Club"
+    },
+    "straights": [
+      {
+        "name": "Hamilton Straight",
+        "from": 18,
+        "to": 1
+      },
+      {
+        "name": "Wellington Straight",
+        "from": 5,
+        "to": 6
+      },
+      {
+        "name": "Old Pit Straight",
+        "from": 8,
+        "to": 9
+      },
+      {
+        "name": "Hangar Straight",
+        "from": 14,
+        "to": 15
+      }
+    ]
+  },
+  "spa": {
+    "corners": {
+      "1": "La Source",
+      "2": "Eau Rouge",
+      "3-4": "Raidillon",
+      "5-6": "Les Combes",
+      "11": "Jacky Ickx corner",
+      "14": "Stavelot",
+      "17": "Blanchimont",
+      "18-19": "Bus Stop chicane"
+    },
+    "straights": [
+      {
+        "name": "Kemmel Straight",
+        "from": 4,
+        "to": 5
+      }
+    ]
+  },
+  "suzuka": {
+    "corners": {
+      "3-6": "Esses",
+      "7": "Dunlop Curve",
+      "8-9": "Degner",
+      "11": "Hairpin",
+      "12": "200R",
+      "13-14": "Spoon",
+      "15": "130R",
+      "16-17": "Casio Triangle"
+    }
+  },
+  "vegas": {
+    "straights": [
+      {
+        "name": "Koval Lane",
+        "from": 4,
+        "to": 5
+      },
+      {
+        "name": "Las Vegas Boulevard",
+        "from": 12,
+        "to": 14
+      },
+      {
+        "name": "Harmon Avenue",
+        "from": 16,
+        "to": 17
+      }
+    ]
+  },
+  "villeneuve": {
+    "corners": {
+      "1-2": "Senna 'S'",
+      "8": "Pont de la Concorde",
+      "10": "L'Epingle (The Hairpin)",
+      "14": "Wall of Champions"
+    }
+  },
+  "zandvoort": {
+    "corners": {
+      "1": "Tarzan corner",
+      "2": "Gerlach corner",
+      "3": "Hugenholtz corner",
+      "4": "Hunserug",
+      "6": "Slotemaker corner",
+      "7": "Scheivlak",
+      "8": "Masters corner",
+      "10": "CM.com corner",
+      "11": "Hans Ernst corner 1",
+      "12": "Hans Ernst corner 2",
+      "14": "Arie Luyendyk corner"
+    }
+  }
+}
