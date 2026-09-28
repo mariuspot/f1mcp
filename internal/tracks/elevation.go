@@ -175,12 +175,48 @@ func drawElevation(dc *gg.Context, t *Track, e elevationPanel) {
 		}
 	}
 
-	// The focused corner.
+	// The focused corner, with the corners before and after it.
 	if e.focus != nil {
+		dc.SetFontFace(face(boldFont, 11))
 		i := nearestIndex(t.Outline, e.focus.Position)
 		x, y := xAt(dist[i]), yAt(t.Elevation[i])
+		for _, c := range neighbours(t, e.focus.Number) {
+			j := nearestIndex(t.Outline, c.Position)
+			nx, ny := xAt(dist[j]), yAt(t.Elevation[j])
+			// Lift a neighbour that would overlap the focused corner.
+			if lifted := math.Abs(nx-x) < 24; lifted {
+				dc.SetHexColor("#FFFFFF60")
+				dc.SetLineWidth(1)
+				dc.DrawLine(nx, ny, nx, ny-24)
+				dc.Stroke()
+				ny -= 24
+			}
+			dc.SetHexColor(textColor)
+			dc.DrawCircle(nx, ny, 9)
+			dc.Fill()
+			dc.SetHexColor(bgColor)
+			dc.DrawStringAnchored(fmt.Sprint(c.Number), nx, ny, 0.5, 0.35)
+		}
 		dc.SetHexColor(kerbRed)
-		dc.DrawCircle(x, y, 7)
+		dc.DrawCircle(x, y, 11)
 		dc.Fill()
+		dc.SetHexColor(textColor)
+		dc.DrawStringAnchored(fmt.Sprint(e.focus.Number), x, y, 0.5, 0.35)
 	}
+}
+
+// neighbours returns the corners before and after a corner in lap order,
+// wrapping round the lap.
+func neighbours(t *Track, number int) []Corner {
+	n := len(t.Corners)
+	for i, c := range t.Corners {
+		if c.Number == number && n > 1 {
+			prev, next := t.Corners[(i-1+n)%n], t.Corners[(i+1)%n]
+			if prev.Number == next.Number {
+				return []Corner{prev}
+			}
+			return []Corner{prev, next}
+		}
+	}
+	return nil
 }

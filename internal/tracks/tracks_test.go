@@ -76,6 +76,28 @@ func TestElevation(t *testing.T) {
 	}
 }
 
+func TestNeighbours(t *testing.T) {
+	tr, err := Load("monza", 2025)
+	if err != nil {
+		t.Fatal(err)
+	}
+	numbers := func(cs []Corner) []int {
+		var out []int
+		for _, c := range cs {
+			out = append(out, c.Number)
+		}
+		return out
+	}
+	for _, tc := range []struct {
+		turn int
+		want []int
+	}{{5, []int{4, 6}}, {1, []int{11, 2}}, {11, []int{10, 1}}} {
+		if got := numbers(neighbours(tr, tc.turn)); !slices.Equal(got, tc.want) {
+			t.Errorf("neighbours of turn %d = %v, want %v", tc.turn, got, tc.want)
+		}
+	}
+}
+
 func TestLayouts(t *testing.T) {
 	got, err := Layouts("imola")
 	if err != nil {
