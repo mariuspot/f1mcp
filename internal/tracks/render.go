@@ -622,16 +622,28 @@ func drawInset(dc *gg.Context, t *Track, c Corner) {
 	dc.Fill()
 
 	p := newProjection(t.Rotation).fit(t.Outline, x+pad, y+pad, w-2*pad, h-2*pad)
-	tracePath(dc, p, t.Outline, 0, len(t.Outline))
-	dc.SetHexColor(edgeColor)
 	dc.SetLineWidth(3)
-	dc.Stroke()
+	dc.SetLineCap(gg.LineCapRound)
+	sectors := sectorRanges(t)
+	for s, r := range sectors {
+		tracePath(dc, p, t.Outline, r[0], r[1])
+		if len(sectors) == 1 {
+			dc.SetHexColor(edgeColor)
+		} else {
+			dc.SetHexColor(sectorColors[s])
+		}
+		dc.Stroke()
+	}
 
 	drawInsetStart(dc, p, t.Outline)
 
+	// White ring so the dot stands out on the red first sector.
 	cx, cy := p.point(c.Position)
+	dc.SetHexColor(textColor)
+	dc.DrawCircle(cx, cy, 10)
+	dc.Fill()
 	dc.SetHexColor(kerbRed)
-	dc.DrawCircle(cx, cy, 8)
+	dc.DrawCircle(cx, cy, 7)
 	dc.Fill()
 }
 

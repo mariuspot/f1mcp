@@ -138,7 +138,7 @@ func drawElevation(dc *gg.Context, t *Track, e elevationPanel) {
 		}
 	}
 
-	// Profile line, coloured by sector on the full map.
+	// Profile line, coloured by sector.
 	dc.SetLineWidth(3)
 	dc.SetLineJoin(gg.LineJoinRound)
 	for s, r := range sectorRanges(t) {
@@ -150,10 +150,9 @@ func drawElevation(dc *gg.Context, t *Track, e elevationPanel) {
 			}
 			dc.LineTo(xAt(d), yAt(t.Elevation[i%len(t.Elevation)]))
 		}
-		switch {
-		case !e.detailed || len(t.SectorStarts) != 2:
+		if len(t.SectorStarts) != 2 {
 			dc.SetHexColor(edgeColor)
-		default:
+		} else {
 			dc.SetHexColor(sectorColors[s])
 		}
 		dc.Stroke()
