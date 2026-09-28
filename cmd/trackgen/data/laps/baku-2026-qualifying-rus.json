@@ -10,6 +10,7 @@
       "number": 63,
       "color": "#00D7B6",
       "lap": 25,
+      "started": "2026-09-25T13:02:17.911Z",
       "duration": 102.526,
       "positions": [
         [ -0.877, 509, -824 ],
@@ -810,5 +811,12 @@
         [ 103.508, 298, 0, 0, 8 ]
       ]
     }
-  ]
+  ],
+  "weather": {
+    "air_c": 24,
+    "track_c": 35.3,
+    "humidity_pct": 70.3,
+    "wind_m_s": 0.8,
+    "rain": false
+  }
 }
