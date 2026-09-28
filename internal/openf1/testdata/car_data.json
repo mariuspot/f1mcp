@@ -1,0 +1,86 @@
+[
+  {
+    "date": "2023-09-17T12:30:00.117000+00:00",
+    "session_key": 9165,
+    "drs": 0,
+    "meeting_key": 1219,
+    "driver_number": 1,
+    "n_gear": 4,
+    "speed": 139,
+    "rpm": 8397,
+    "brake": 0,
+    "throttle": 54
+  },
+  {
+    "date": "2023-09-17T12:30:00.397000+00:00",
+    "session_key": 9165,
+    "drs": 0,
+    "meeting_key": 1219,
+    "driver_number": 1,
+    "n_gear": 4,
+    "speed": 145,
+    "rpm": 8900,
+    "brake": 0,
+    "throttle": 64
+  },
+  {
+    "date": "2023-09-17T12:30:00.797000+00:00",
+    "session_key": 9165,
+    "drs": 0,
+    "meeting_key": 1219,
+    "driver_number": 1,
+    "n_gear": 4,
+    "speed": 145,
+    "rpm": 8718,
+    "brake": 100,
+    "throttle": 0
+  },
+  {
+    "date": "2023-09-17T12:30:01.237000+00:00",
+    "session_key": 9165,
+    "drs": 0,
+    "meeting_key": 1219,
+    "driver_number": 1,
+    "n_gear": 4,
+    "speed": 118,
+    "rpm": 8586,
+    "brake": 100,
+    "throttle": 0
+  },
+  {
+    "date": "2023-09-17T12:30:01.437000+00:00",
+    "session_key": 9165,
+    "drs": 0,
+    "meeting_key": 1219,
+    "driver_number": 1,
+    "n_gear": 3,
+    "speed": 111,
+    "rpm": 7858,
+    "brake": 100,
+    "throttle": 0
+  },
+  {
+    "date": "2023-09-17T12:30:01.797000+00:00",
+    "session_key": 9165,
+    "drs": 0,
+    "meeting_key": 1219,
+    "driver_number": 1,
+    "n_gear": 3,
+    "speed": 108,
+    "rpm": 7381,
+    "brake": 100,
+    "throttle": 0
+  },
+  {
+    "date": "2023-09-17T12:30:01.997000+00:00",
+    "session_key": 9165,
+    "drs": 0,
+    "meeting_key": 1219,
+    "driver_number": 1,
+    "n_gear": 3,
+    "speed": 105,
+    "rpm": 7252,
+    "brake": 0,
+    "throttle": 1
+  }
+]

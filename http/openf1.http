@@ -6,8 +6,8 @@
 
 @baseUrl = https://api.openf1.org/v1
 @year = 2024
-# 2023 Singapore Grand Prix race, used in OpenF1's own docs
-@sessionKey = 9161
+# 2023 Singapore Grand Prix race (9161 is that weekend's qualifying)
+@sessionKey = 9165
 @meetingKey = 1219
 @driverNumber = 1
 @lap = 8
