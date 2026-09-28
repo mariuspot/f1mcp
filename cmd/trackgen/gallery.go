@@ -46,6 +46,9 @@ type galleryLaps struct {
 	Title string // e.g. "NOR 1:41.234 vs PIA 1:41.456"
 	Laps  LapFile
 	Video bool // whether the follow-camera video was made
+	// Faster is whether there's a map of where each driver was faster,
+	// made when there are several laps.
+	Faster bool
 	// Credits are the drivers' photos used in the video.
 	Credits []Headshot
 }
@@ -215,6 +218,9 @@ var lapsTmpl = template.Must(template.New("laps").Parse(`<!doctype html>
 <video class="map" src="lap-follow.mp4" poster="poster.png" autoplay muted loop playsinline controls></video>
 <h2>Whole track</h2>{{end}}
 <img class="map" src="lap.gif" alt="Animation of {{.Title}}">
+{{if .Faster}}<h2>Where each driver was faster</h2>
+<p class="muted">Each corner and straight is edged in the colour of the driver who was quickest through it, faded where it was within 0.02 s. Below, the gap to the first driver all round the lap.</p>
+<img class="map" src="faster.png" alt="Map of where each driver was faster, {{.Title}}">{{end}}
 <h2>With braking and gear changes</h2>
 <p class="muted">Red marks where each driver was on the brakes, with their speed in km/h as braking started; dots show each gear change and the new gear.</p>
 <img class="map" src="lap-events.gif" alt="Animation of {{.Title}} with braking and gear changes">

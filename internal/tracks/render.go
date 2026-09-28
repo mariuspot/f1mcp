@@ -245,19 +245,34 @@ func RenderCorner(t *Track, number int, o Options) (image.Image, error) {
 // drawTrack draws the asphalt with sector-coloured edges, kerbs at each
 // corner, and the start/finish line. width is the asphalt width in pixels.
 func drawTrack(dc *gg.Context, p projection, t *Track, width float64) {
+	// Edges, coloured by sector when sectors are known.
+	var edges []trackEdge
+	sectors := sectorRanges(t)
+	for s, r := range sectors {
+		c := sectorColors[s]
+		if len(sectors) == 1 {
+			c = edgeColor
+		}
+		edges = append(edges, trackEdge{r[0], r[1], c})
+	}
+	drawTrackEdges(dc, p, t, width, edges)
+}
+
+// trackEdge is a stretch of outline, [from, to), and the colour of its
+// edges. to may run past the end of the outline into the next lap.
+type trackEdge struct {
+	from, to int
+	color    string
+}
+
+// drawTrackEdges is drawTrack with the edges coloured as given.
+func drawTrackEdges(dc *gg.Context, p projection, t *Track, width float64, edges []trackEdge) {
 	dc.SetLineJoin(gg.LineJoinRound)
 	dc.SetLineCap(gg.LineCapRound)
 	edge := max(3, width*0.2)
-
-	// Edges, coloured by sector when sectors are known.
-	sectors := sectorRanges(t)
-	for s, r := range sectors {
-		tracePath(dc, p, t.Outline, r[0], r[1])
-		if len(sectors) == 1 {
-			dc.SetHexColor(edgeColor)
-		} else {
-			dc.SetHexColor(sectorColors[s])
-		}
+	for _, e := range edges {
+		tracePath(dc, p, t.Outline, e.from, e.to)
+		dc.SetHexColor(e.color)
 		dc.SetLineWidth(width + 2*edge)
 		dc.Stroke()
 	}
