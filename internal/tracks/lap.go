@@ -107,7 +107,7 @@ func RenderLapGIF(t *Track, laps []LapTrace, o Options) (*gif.GIF, error) {
 			placed = append(placed, drawCar(dc, p, l, min(T, l.Duration), placed))
 		}
 		drawElevationDots(dc, t, laps, progress, dist, lap, T, scale, float64(band))
-		drawLapHUD(dc, laps, progress, T)
+		drawLapHUD(dc, laps, progress, T, 0)
 
 		pf := quantize(frame, withClear[:len(pal)], cache)
 		pf.Palette = withClear
@@ -454,18 +454,18 @@ func drawElevationDots(dc *gg.Context, t *Track, laps []LapTrace, progress [][]f
 
 // drawLapHUD draws the timing band across the top: the lap timer, then a
 // row per driver with speed, gear, throttle, brake and gap to the first.
-func drawLapHUD(dc *gg.Context, laps []LapTrace, progress [][]float64, T float64) {
+func drawLapHUD(dc *gg.Context, laps []LapTrace, progress [][]float64, T, top float64) {
 	const pad = 16.0
 	W := float64(dc.Width())
 	dc.SetFontFace(face(boldFont, 22))
 	dc.SetHexColor(textColor)
-	dc.DrawString(formatLapTime(min(T, laps[0].Duration)), pad, 30)
+	dc.DrawString(formatLapTime(min(T, laps[0].Duration)), pad, top+30)
 	dc.SetFontFace(face(regularFont, 12))
 	dc.SetHexColor(subtleColor)
-	dc.DrawStringAnchored(fmt.Sprintf("Lap time · played at %.0f× speed", lapSpeedUp), W-pad, 26, 1, 0)
+	dc.DrawStringAnchored(fmt.Sprintf("Lap time · played at %.0f× speed", lapSpeedUp), W-pad, top+26, 1, 0)
 
 	for i, l := range laps {
-		ry := 44 + float64(lapRowHeight*i)
+		ry := top + 44 + float64(lapRowHeight*i)
 		lt := min(T, l.Duration)
 		tel := l.telemetry(lt)
 		dc.SetHexColor(hex(l.Color))

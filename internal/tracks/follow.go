@@ -10,8 +10,12 @@ import (
 )
 
 const (
-	// Follow-camera video frames: 720p, with the timing band at the top.
-	followWidth, followHeight = 1280, 720
+	// Follow-camera video frames: 4:5 portrait for phones. From the top: a
+	// header naming the circuit and laps, the timing band, the camera view,
+	// and the elevation profile.
+	followWidth, followHeight = 720, 900
+	followHeader              = 64
+	followElevation           = 150
 	followFPS                 = 25.0
 	// followPad is extra space around the pre-drawn track, so the camera
 	// never runs off its edge.
@@ -39,7 +43,8 @@ func RenderLapFollow(t *Track, laps []LapTrace, o Options, sink func(*image.RGBA
 	big, p := drawBigTrack(t, scale, o)
 
 	band := lapBandHeight(len(laps))
-	view := image.Rect(0, band, followWidth, followHeight)
+	top := followHeader + band
+	view := image.Rect(0, top, followWidth, followHeight-followElevation)
 	outward := -insideSide(p, t.Outline)
 	dist, lap := lapDistances(t.Outline)
 	progress := make([][]float64, len(laps))
@@ -50,11 +55,25 @@ func RenderLapFollow(t *Track, laps []LapTrace, o Options, sink func(*image.RGBA
 		events[i] = l.events()
 		longest = max(longest, l.Duration)
 	}
-	bg := hexColor(bgColor)
+
+	// Everything that doesn't move is drawn once: the header and the
+	// elevation profile.
 	blank := image.NewRGBA(image.Rect(0, 0, followWidth, followHeight))
-	for i := 0; i < len(blank.Pix); i += 4 {
-		blank.Pix[i], blank.Pix[i+1], blank.Pix[i+2], blank.Pix[i+3] = bg.R, bg.G, bg.B, 255
+	bc := gg.NewContextForRGBA(blank)
+	bc.SetHexColor(bgColor)
+	bc.Clear()
+	bc.SetFontFace(face(boldFont, 24))
+	bc.SetHexColor(textColor)
+	bc.DrawString(fmt.Sprintf("%s · %s", t.Name, o.years(t)), 16, 32)
+	if o.Overlay != nil && o.Overlay.Banner != "" {
+		bc.SetFontFace(face(regularFont, 14))
+		bc.SetHexColor(subtleColor)
+		bc.DrawString(o.Overlay.Banner, 16, 54)
 	}
+	elev := elevationPanel{x: 12, y: followHeight - followElevation + 6, w: followWidth - 24, h: followElevation - 12}
+	drawElevation(bc, t, elev)
+	// How much of the lap the camera view spans, in metres.
+	viewSpan := float64(followWidth) / scale / 10
 
 	step := lapSpeedUp / followFPS
 	holdFrames := int(math.Round(lapHold * followFPS))
@@ -67,11 +86,11 @@ func RenderLapFollow(t *Track, laps []LapTrace, o Options, sink func(*image.RGBA
 			x, y := p.point(laps[0].position(min(max(T+dt, 0), laps[0].Duration)))
 			cx, cy = cx+x/5, cy+y/5
 		}
-		crop := image.Pt(int(cx)-followWidth/2, int(cy)-band-view.Dy()/2)
+		crop := image.Pt(int(cx)-followWidth/2, int(cy)-top-view.Dy()/2)
 
 		frame := image.NewRGBA(blank.Rect)
 		copy(frame.Pix, blank.Pix)
-		draw.Draw(frame, view, big, crop.Add(image.Pt(0, band)), draw.Src)
+		draw.Draw(frame, view, big, crop.Add(image.Pt(0, top)), draw.Src)
 
 		// The same projection, shifted into the frame.
 		pc := p
@@ -87,12 +106,13 @@ func RenderLapFollow(t *Track, laps []LapTrace, o Options, sink func(*image.RGBA
 		for _, l := range laps {
 			placed = append(placed, drawCar(dc, pc, l, min(T, l.Duration), placed))
 		}
-		// Clear anything drawn over the timing band, then draw the panels.
-		dc.SetHexColor(bgColor)
-		dc.DrawRectangle(0, 0, followWidth, float64(band))
-		dc.Fill()
-		drawFollowInset(dc, t, laps, T, float64(band))
-		drawLapHUD(dc, laps, progress, T)
+		// Put back the header, band and elevation areas over anything drawn
+		// past the view, then draw the panels.
+		draw.Draw(frame, image.Rect(0, 0, followWidth, top), blank, image.Point{}, draw.Src)
+		draw.Draw(frame, image.Rect(0, view.Max.Y, followWidth, followHeight), blank, image.Pt(0, view.Max.Y), draw.Src)
+		drawFollowInset(dc, t, laps, T, float64(top))
+		drawLapHUD(dc, laps, progress, T, followHeader)
+		drawFollowElevation(dc, t, laps, progress, dist, lap, T, elev, viewSpan)
 
 		if err := sink(frame); err != nil {
 			return err
@@ -144,11 +164,41 @@ func drawBigTrack(t *Track, scale float64, o Options) (*image.RGBA, projection) 
 	return dc.Image().(*image.RGBA), p
 }
 
+// drawFollowElevation marks each car on the elevation profile, and shades
+// the stretch of lap the camera shows.
+func drawFollowElevation(dc *gg.Context, t *Track, laps []LapTrace, progress [][]float64, dist []float64, lap, T float64, e elevationPanel, span float64) {
+	if len(t.Elevation) != len(t.Outline) {
+		return
+	}
+	xAt, yAt := e.axes(lap, max(t.ElevationChange(), 10))
+	_, py, _, ph := e.plotArea()
+	d0 := distanceAt(laps[0], progress[0], min(T, laps[0].Duration))
+	dc.SetHexColor("#E1060030")
+	for _, r := range [][2]float64{{d0 - span/2, d0 + span/2}, {d0 - span/2 + lap, d0 + span/2 + lap}, {d0 - span/2 - lap, d0 + span/2 - lap}} {
+		a, b := max(r[0], 0), min(r[1], lap)
+		if b > a {
+			dc.DrawRectangle(xAt(a), py, xAt(b)-xAt(a), ph)
+			dc.Fill()
+		}
+	}
+	for i, l := range laps {
+		d := min(max(distanceAt(l, progress[i], min(T, l.Duration)), 0), lap)
+		x, y := xAt(d), yAt(elevationAt(t, dist, d))
+		c := hexColor(hex(l.Color))
+		dc.SetHexColor(textColor)
+		dc.DrawCircle(x, y, 6)
+		dc.Fill()
+		dc.SetRGB255(int(c.R), int(c.G), int(c.B))
+		dc.DrawCircle(x, y, 4.5)
+		dc.Fill()
+	}
+}
+
 // drawFollowInset draws a mini map of the whole circuit in the top right of
 // the view, coloured by sector, with a dot for each car.
 func drawFollowInset(dc *gg.Context, t *Track, laps []LapTrace, T, top float64) {
-	const w, h, pad = 300.0, 220.0, 16.0
-	x, y := float64(dc.Width())-w-16, top+16
+	const w, h, pad = 190.0, 145.0, 12.0
+	x, y := float64(dc.Width())-w-12, top+12
 	dc.SetHexColor(bgColor)
 	dc.DrawRoundedRectangle(x, y, w, h, 10)
 	dc.FillPreserve()
