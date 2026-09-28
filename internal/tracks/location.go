@@ -22,6 +22,8 @@ type Location struct {
 	straightEnds [2]int
 	// MarshalSector is the marshal sector the point is in, or 0 if unknown.
 	MarshalSector int
+	// ElevationM is the height above the lowest point of the lap, if known.
+	ElevationM *float64
 }
 
 // Locate describes where a point is on the track.
@@ -34,6 +36,9 @@ func (t *Track) Locate(p Point) Location {
 	dist, lap := lapDistances(t.Outline)
 	i := nearestIndex(t.Outline, p)
 	loc.Distance = dist[i]
+	if len(t.Elevation) == n {
+		loc.ElevationM = &t.Elevation[i]
+	}
 
 	// Corners either side, and whether the point is at one.
 	best := lap
@@ -126,4 +131,10 @@ func cornerLabel(c Corner) string {
 		return fmt.Sprintf("Turn %d, %s", c.Number, c.Name)
 	}
 	return fmt.Sprintf("Turn %d", c.Number)
+}
+
+// LengthKM returns the length of a lap in kilometres.
+func (t *Track) LengthKM() float64 {
+	_, lap := lapDistances(t.Outline)
+	return lap / 1000
 }

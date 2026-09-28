@@ -12,6 +12,7 @@ import (
 func Register(s *mcp.Server, svc *f1.Service) {
 	registerSeason(s, svc)
 	registerSession(s, svc)
+	registerTrack(s, svc)
 }
 
 // Arguments shared by several tools.
