@@ -65,17 +65,25 @@ make docker-build   # build the f1mcp:dev image
 
 ### Using it from an MCP client
 
-The server speaks MCP over stdio. To add it to Claude Code:
+The image is published to GitHub Container Registry for amd64 and arm64: `ghcr.io/mariuspot/f1mcp:latest` from `main`, and `:X.Y.Z` for each version tag. The server speaks MCP over stdio. To add it to Claude Code:
 
 ```sh
-claude mcp add f1mcp -- docker run --rm -i f1mcp:dev
+claude mcp add --scope user f1mcp -- docker run --rm -i ghcr.io/mariuspot/f1mcp:latest
 ```
 
-For other clients, configure the command `docker run --rm -i f1mcp:dev`. To serve over streamable HTTP instead of stdio:
+Or, with an image you built with `make docker-build`:
 
 ```sh
-docker run --rm -p 8080:8080 f1mcp:dev -transport http
+claude mcp add --scope user f1mcp -- docker run --rm -i f1mcp:dev
 ```
+
+For other clients, configure the command `docker run --rm -i ghcr.io/mariuspot/f1mcp:latest`. To serve over streamable HTTP instead of stdio, on port 8080:
+
+```sh
+docker run --rm -p 8080:8080 ghcr.io/mariuspot/f1mcp:latest -transport http
+```
+
+The `-transport` and `-addr` flags can also be set with the `F1MCP_TRANSPORT` and `F1MCP_ADDR` environment variables. The server keeps API responses in memory: past seasons for as long as it runs, the current season for 10 minutes.
 
 ### Track data
 
