@@ -64,6 +64,7 @@ func RenderLapGIF(t *Track, laps []LapTrace, o Options) (*gif.GIF, error) {
 	p := mapProjection(t)
 	p.scale, p.ox, p.oy = p.scale*scale, p.ox*scale, p.oy*scale+float64(band)
 
+	outward := -insideSide(p, t.Outline)
 	pal := lapPalette(laps)
 	// A transparent entry, used for pixels unchanged since the last frame.
 	withClear := append(append(color.Palette{}, pal...), color.RGBA{})
@@ -90,7 +91,7 @@ func RenderLapGIF(t *Track, laps []LapTrace, o Options) (*gif.GIF, error) {
 		dc := gg.NewContextForRGBA(frame)
 		if o.LapEvents {
 			for i, l := range laps {
-				drawLapEvents(dc, p, l, min(T, l.Duration), i, len(laps))
+				drawLapEvents(dc, p, l, min(T, l.Duration), i, len(laps), outward)
 			}
 		}
 		var placed [][2]float64
@@ -337,13 +338,15 @@ func (l LapTrace) events() []lapEvent {
 	return out
 }
 
-// drawLapEvents marks where a car braked (red along the track, with its
-// speed as braking started) and changed gear (a dot with the new gear), up
-// to lap time T. With several drivers, each gets its own side of the track.
-func drawLapEvents(dc *gg.Context, p projection, l LapTrace, T float64, driver, drivers int) {
-	side := 0.0
+// drawLapEvents marks where a car braked (red along the track) and changed
+// gear, up to lap time T. The braking speed and new gear are drawn off the
+// track, each joined to its point by a thin line: on the driver's own side
+// with several drivers, else on outward (+1 right, -1 left of travel).
+func drawLapEvents(dc *gg.Context, p projection, l LapTrace, T float64, driver, drivers int, outward float64) {
+	side, dir := 0.0, outward
 	if drivers > 1 {
 		side = 7 * (float64(driver)*2 - float64(drivers-1))
+		dir = math.Copysign(1, side)
 	}
 	// at returns the point offset sideways by off pixels from the car's
 	// position at time t (positive is right of travel).
@@ -359,6 +362,15 @@ func drawLapEvents(dc *gg.Context, p projection, l LapTrace, T float64, driver, 
 		return x, y
 	}
 	c := hexColor(hex(l.Color))
+	leader := func(x0, y0, x1, y1 float64) {
+		dc.SetRGBA255(int(c.R), int(c.G), int(c.B), 200)
+		dc.SetLineWidth(1)
+		dc.DrawLine(x0, y0, x1, y1)
+		dc.Stroke()
+		dc.DrawCircle(x0, y0, 1.8)
+		dc.Fill()
+	}
+	gears := 0
 	for _, e := range l.events() {
 		if e.t > T {
 			break
@@ -373,12 +385,10 @@ func drawLapEvents(dc *gg.Context, p projection, l LapTrace, T float64, driver, 
 			dc.SetLineCap(gg.LineCapRound)
 			dc.Stroke()
 
-			// Speed as braking started, further out on the driver's side.
-			out := 22.0
-			if side < 0 {
-				out = -22
-			}
-			lx, ly := at(e.t, side+out)
+			// Speed as braking started.
+			x0, y0 := at(e.t, side)
+			lx, ly := at(e.t, side+dir*52)
+			leader(x0, y0, lx, ly)
 			label := fmt.Sprintf("%.0f", e.speed)
 			dc.SetFontFace(face(boldFont, 10))
 			w, h := dc.MeasureString(label)
@@ -389,13 +399,19 @@ func drawLapEvents(dc *gg.Context, p projection, l LapTrace, T float64, driver, 
 			dc.DrawStringAnchored(label, lx, ly, 0.5, 0.35)
 			continue
 		}
-		x, y := at(e.t, side)
+		// New gear, alternating between two distances so neighbours
+		// don't overlap.
+		x0, y0 := at(e.t, side)
+		d := 24.0 + float64(gears%2)*12
+		gears++
+		gx, gy := at(e.t, side+dir*d)
+		leader(x0, y0, gx, gy)
 		dc.SetRGB255(int(c.R), int(c.G), int(c.B))
-		dc.DrawCircle(x, y, 6)
+		dc.DrawCircle(gx, gy, 6)
 		dc.Fill()
 		dc.SetFontFace(face(boldFont, 9))
 		dc.SetHexColor(textColor)
-		dc.DrawStringAnchored(fmt.Sprint(e.gear), x, y, 0.5, 0.4)
+		dc.DrawStringAnchored(fmt.Sprint(e.gear), gx, gy, 0.5, 0.4)
 	}
 }
 
