@@ -4,7 +4,7 @@ An [MCP](https://modelcontextprotocol.io) server for Formula 1 data, written in 
 
 It combines two public F1 APIs behind one consistent set of tools, so the model asks for things like "the 2024 Monaco race" and never has to know which API answered or how their IDs and formats differ.
 
-> **Status: work in progress.** Season and session tools work; track and visual tools are next.
+> **Status: work in progress.** Season, session and track tools work; incidents and lap animations are next.
 
 ## Tools
 
@@ -21,6 +21,10 @@ It combines two public F1 APIs behind one consistent set of tools, so the model 
 | `get_race_control` | Key events by default (red flags, safety cars, penalties), or every message (from 2023) |
 | `get_weather` | Temperature, humidity, wind and rain summary, or the readings (from 2023) |
 | `get_car_telemetry` | A driver's lap: top speed, full throttle, and each braking zone by corner (from 2023) |
+| `get_track` | A circuit's layout: length, turns with names, distances and elevation, straights, sectors |
+| `get_track_map` | A PNG map of a circuit, or a close-up of one turn |
+
+Each circuit layout is also a resource, `track://{circuit}/{year}`, a PNG map.
 
 Events are chosen by `year` and `round`: a number, `last`, `next`, or part of the event, circuit, city or country name (`"Monaco"`, `"Spa"`); sessions by name (`race`, `qualifying`, `sprint`, `sprint_qualifying`, `fp1`–`fp3`); drivers by code, number or name. Times and gaps are in seconds. Long results are paged with `limit` and `cursor`.
 
