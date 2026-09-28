@@ -102,20 +102,6 @@ func drawElevation(dc *gg.Context, t *Track, e elevationPanel) {
 		}
 	}
 
-	// Shade the part of the lap shown in a corner image.
-	if e.focus != nil {
-		ci := nearestIndex(t.Outline, e.focus.Position)
-		from, to := dist[ci]-cornerRadius/10, dist[ci]+cornerRadius/10
-		dc.SetHexColor("#FFFFFF18")
-		for _, r := range [][2]float64{{from, to}, {from + lap, to + lap}, {from - lap, to - lap}} {
-			a, b := max(r[0], 0), min(r[1], lap)
-			if b > a {
-				dc.DrawRectangle(xAt(a), py, xAt(b)-xAt(a), ph)
-				dc.Fill()
-			}
-		}
-	}
-
 	// Filled profile, closed back to the start.
 	dc.MoveTo(xAt(0), yAt(0))
 	for i, z := range t.Elevation {
@@ -126,6 +112,31 @@ func drawElevation(dc *gg.Context, t *Track, e elevationPanel) {
 	dc.ClosePath()
 	dc.SetHexColor(asphaltColor)
 	dc.Fill()
+
+	// Highlight the part of the lap shown in a corner image, over the fill
+	// so it stands out above and below the line.
+	if e.focus != nil {
+		ci := nearestIndex(t.Outline, e.focus.Position)
+		from, to := dist[ci]-cornerRadius/10, dist[ci]+cornerRadius/10
+		for _, r := range [][2]float64{{from, to}, {from + lap, to + lap}, {from - lap, to - lap}} {
+			a, b := max(r[0], 0), min(r[1], lap)
+			if b <= a {
+				continue
+			}
+			x0, x1 := xAt(a), xAt(b)
+			dc.SetHexColor("#E1060030")
+			dc.DrawRectangle(x0, py, x1-x0, ph)
+			dc.Fill()
+			dc.SetHexColor("#E1060090")
+			dc.SetLineWidth(1)
+			for _, x := range []float64{x0, x1} {
+				if x > px && x < px+pw {
+					dc.DrawLine(x, py, x, py+ph)
+					dc.Stroke()
+				}
+			}
+		}
+	}
 
 	// Profile line, coloured by sector on the full map.
 	dc.SetLineWidth(3)
