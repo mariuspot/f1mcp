@@ -110,8 +110,10 @@ func RenderLapFollow(t *Track, laps []LapTrace, o Options, sink func(*image.RGBA
 		// past the view, then draw the panels.
 		draw.Draw(frame, image.Rect(0, 0, followWidth, top), blank, image.Point{}, draw.Src)
 		draw.Draw(frame, image.Rect(0, view.Max.Y, followWidth, followHeight), blank, image.Pt(0, view.Max.Y), draw.Src)
-		drawFollowInset(dc, t, laps, T, float64(top))
-		drawLapHUD(dc, laps, progress, T, followHeader)
+		// Mini map to the right of the header and timing band.
+		const mapW = 170
+		drawFollowInset(dc, t, laps, T, followWidth-mapW-12, 12, mapW, float64(top)-24)
+		drawLapHUD(dc, laps, progress, T, followHeader, followWidth-mapW-28)
 		drawFollowElevation(dc, t, laps, progress, dist, lap, T, elev, viewSpan)
 
 		if err := sink(frame); err != nil {
@@ -194,11 +196,10 @@ func drawFollowElevation(dc *gg.Context, t *Track, laps []LapTrace, progress [][
 	}
 }
 
-// drawFollowInset draws a mini map of the whole circuit in the top right of
-// the view, coloured by sector, with a dot for each car.
-func drawFollowInset(dc *gg.Context, t *Track, laps []LapTrace, T, top float64) {
-	const w, h, pad = 190.0, 145.0, 12.0
-	x, y := float64(dc.Width())-w-12, top+12
+// drawFollowInset draws a mini map of the whole circuit in the box (x, y,
+// w, h), coloured by sector, with a dot for each car.
+func drawFollowInset(dc *gg.Context, t *Track, laps []LapTrace, T, x, y, w, h float64) {
+	const pad = 12.0
 	dc.SetHexColor(bgColor)
 	dc.DrawRoundedRectangle(x, y, w, h, 10)
 	dc.FillPreserve()

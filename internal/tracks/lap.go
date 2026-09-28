@@ -107,7 +107,7 @@ func RenderLapGIF(t *Track, laps []LapTrace, o Options) (*gif.GIF, error) {
 			placed = append(placed, drawCar(dc, p, l, min(T, l.Duration), placed))
 		}
 		drawElevationDots(dc, t, laps, progress, dist, lap, T, scale, float64(band))
-		drawLapHUD(dc, laps, progress, T, 0)
+		drawLapHUD(dc, laps, progress, T, 0, float64(dc.Width())-16)
 
 		pf := quantize(frame, withClear[:len(pal)], cache)
 		pf.Palette = withClear
@@ -452,17 +452,17 @@ func drawElevationDots(dc *gg.Context, t *Track, laps []LapTrace, progress [][]f
 	}
 }
 
-// drawLapHUD draws the timing band across the top: the lap timer, then a
-// row per driver with speed, gear, throttle, brake and gap to the first.
-func drawLapHUD(dc *gg.Context, laps []LapTrace, progress [][]float64, T, top float64) {
+// drawLapHUD draws the timing band from top down, between the left edge
+// and right: the lap timer, then a row per driver with speed, gear, a
+// throttle bar, a brake light and the gap to the first driver.
+func drawLapHUD(dc *gg.Context, laps []LapTrace, progress [][]float64, T, top, right float64) {
 	const pad = 16.0
-	W := float64(dc.Width())
 	dc.SetFontFace(face(boldFont, 22))
 	dc.SetHexColor(textColor)
 	dc.DrawString(formatLapTime(min(T, laps[0].Duration)), pad, top+30)
 	dc.SetFontFace(face(regularFont, 12))
 	dc.SetHexColor(subtleColor)
-	dc.DrawStringAnchored(fmt.Sprintf("Lap time · played at %.0f× speed", lapSpeedUp), W-pad, top+26, 1, 0)
+	dc.DrawStringAnchored(fmt.Sprintf("Lap time · %.0f× speed", lapSpeedUp), right, top+26, 1, 0)
 
 	for i, l := range laps {
 		ry := top + 44 + float64(lapRowHeight*i)
@@ -479,25 +479,29 @@ func drawLapHUD(dc *gg.Context, laps []LapTrace, progress [][]float64, T, top fl
 		dc.DrawString(fmt.Sprintf("%3.0f km/h", tel[1]), pad+64, ry+22)
 		dc.DrawString(fmt.Sprintf("G%.0f", tel[4]), pad+150, ry+22)
 
-		// Throttle and brake bars.
-		const bw = 140.0
-		bx, by := pad+228, ry+13
+		// Throttle bar, then a light for the brake, which OpenF1 only
+		// reports as on or off.
+		const bw = 120.0
+		bx, by := pad+222, ry+13
 		dc.SetFontFace(face(regularFont, 11))
 		dc.SetHexColor(subtleColor)
 		dc.DrawStringAnchored("THR", bx, by+4, 1.15, 0.35)
-		dc.DrawStringAnchored("BRK", bx+bw+44, by+4, 1.15, 0.35)
 		dc.SetHexColor("#2C2C3A")
 		dc.DrawRectangle(bx, by, bw, 9)
-		dc.DrawRectangle(bx+bw+44, by, bw, 9)
 		dc.Fill()
 		dc.SetHexColor("#2ECC71")
 		dc.DrawRectangle(bx, by, bw*min(tel[2], 100)/100, 9)
 		dc.Fill()
+		lx := bx + bw + 40
+		dc.SetHexColor(subtleColor)
+		dc.DrawStringAnchored("BRK", lx, by+4, 1.15, 0.35)
 		if tel[3] > 0 {
 			dc.SetHexColor(kerbRed)
-			dc.DrawRectangle(bx+bw+44, by, bw*min(tel[3], 100)/100, 9)
-			dc.Fill()
+		} else {
+			dc.SetHexColor("#2C2C3A")
 		}
+		dc.DrawRoundedRectangle(lx, by-2, 13, 13, 3)
+		dc.Fill()
 
 		// Gap to the first driver at the same point on the lap.
 		switch {
@@ -511,15 +515,15 @@ func drawLapHUD(dc *gg.Context, laps []LapTrace, progress [][]float64, T, top fl
 			dc.SetFontFace(face(boldFont, 15))
 			if gap >= 0 {
 				dc.SetHexColor(kerbRed)
-				dc.DrawStringAnchored(fmt.Sprintf("+%.3f", gap), W-pad, ry+22, 1, 0)
+				dc.DrawStringAnchored(fmt.Sprintf("+%.3f", gap), right, ry+22, 1, 0)
 			} else {
 				dc.SetHexColor("#2ECC71")
-				dc.DrawStringAnchored(fmt.Sprintf("%.3f", gap), W-pad, ry+22, 1, 0)
+				dc.DrawStringAnchored(fmt.Sprintf("%.3f", gap), right, ry+22, 1, 0)
 			}
 		case len(laps) > 1:
 			dc.SetFontFace(face(regularFont, 13))
 			dc.SetHexColor(subtleColor)
-			dc.DrawStringAnchored("reference", W-pad, ry+22, 1, 0)
+			dc.DrawStringAnchored("ref", right, ry+22, 1, 0)
 		}
 	}
 }
