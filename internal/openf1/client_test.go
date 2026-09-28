@@ -1,96 +1,26 @@
 package openf1
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"flag"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
-	"os"
-	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/mariuspot/f1mcp/internal/golden"
 )
 
-// Golden files in testdata/ hold real OpenF1 responses. Tests replay them by
-// default; run `go test ./internal/openf1 -update` to re-fetch them from the
-// live API. Fixtures use the 2023 Singapore Grand Prix (meeting 1219, race
-// session 9165) and Max Verstappen (driver 1).
-var update = flag.Bool("update", false, "re-fetch golden files from the live OpenF1 API")
+// Fixtures use the 2023 Singapore Grand Prix (meeting 1219, race session
+// 9165) and Max Verstappen (driver 1). See package golden for -update.
 
-// goldenClient returns a Client backed by a server that serves
-// testdata/<name>.json, and fails the test if the client requests anything
-// other than path?query. Query parameters may be sent in any order.
+// goldenClient returns a Client backed by testdata/<name>.json that expects
+// a request for path?query.
 func goldenClient(t *testing.T, name, path, query string) *Client {
 	t.Helper()
-	file := filepath.Join("testdata", name+".json")
-	if *update {
-		fetchGolden(t, file, DefaultBaseURL+path+"?"+query)
-	}
-	body, err := os.ReadFile(file)
-	if err != nil {
-		t.Fatalf("reading golden file (run with -update to create it): %v", err)
-	}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != path {
-			t.Errorf("path = %q, want %q", r.URL.Path, path)
-		}
-		if got, want := normalizeQuery(t, r.URL.RawQuery), normalizeQuery(t, query); !slices.Equal(got, want) {
-			t.Errorf("query = %v, want %v", got, want)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(body)
-	}))
-	t.Cleanup(srv.Close)
+	srv := golden.Serve(t, name, DefaultBaseURL, path, query)
 	return NewClient(srv.URL, srv.Client())
-}
-
-func fetchGolden(t *testing.T, file, rawURL string) {
-	t.Helper()
-	resp, err := http.Get(rawURL)
-	if err != nil {
-		t.Fatalf("fetching %s: %v", rawURL, err)
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("reading %s: %v", rawURL, err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("fetching %s: status %s: %s", rawURL, resp.Status, body)
-	}
-	var pretty bytes.Buffer
-	if err := json.Indent(&pretty, body, "", "  "); err != nil {
-		t.Fatalf("indenting %s: %v", rawURL, err)
-	}
-	pretty.WriteByte('\n')
-	if err := os.WriteFile(file, pretty.Bytes(), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	// Be polite to the public API when refreshing many files.
-	time.Sleep(500 * time.Millisecond)
-}
-
-// normalizeQuery splits a raw query into sorted, unescaped parts. OpenF1
-// filters like "date>2023-09-17T12:30:00Z" have no "=", so url.ParseQuery
-// can't be used.
-func normalizeQuery(t *testing.T, raw string) []string {
-	t.Helper()
-	var parts []string
-	for p := range strings.SplitSeq(raw, "&") {
-		u, err := url.QueryUnescape(p)
-		if err != nil {
-			t.Fatalf("unescaping %q: %v", p, err)
-		}
-		parts = append(parts, u)
-	}
-	slices.Sort(parts)
-	return parts
 }
 
 func mustTime(t *testing.T, s string) time.Time {

@@ -4,7 +4,7 @@ An [MCP](https://modelcontextprotocol.io) server for Formula 1 data, written in 
 
 It combines two public F1 APIs behind one consistent set of tools, so the model asks for things like "the 2024 Monaco race" and never has to know which API answered or how their IDs and formats differ.
 
-> **Status: work in progress.** The server runs and registers its tools, but most tools are still stubs. The OpenF1 client is done; the Jolpica client, shared types and track maps are next.
+> **Status: work in progress.** The server runs and registers its tools, but most tools are still stubs. The OpenF1 and Jolpica clients are done; shared types, tools and track maps are next.
 
 ## What it covers
 
@@ -51,7 +51,7 @@ For other clients, configure the command `docker run --rm -i f1mcp:dev`.
 Client tests replay real API responses saved in `testdata/`. To refresh them from the live API:
 
 ```sh
-go test ./internal/openf1 -update -count=1
+go test ./internal/openf1 ./internal/jolpica -update -count=1
 ```
 
 ## Project layout
@@ -61,6 +61,8 @@ cmd/f1mcp/          server entrypoint
 internal/server/    builds the MCP server
 internal/tools/     MCP tool definitions
 internal/openf1/    OpenF1 API client
+internal/jolpica/   Jolpica API client
+internal/golden/    golden-file helper for client tests
 http/               REST Client files for exploring the APIs
 ```
 
