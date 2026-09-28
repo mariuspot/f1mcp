@@ -119,6 +119,8 @@ type Options struct {
 	// Years labels the seasons shown, e.g. "2023–2026". Defaults to the
 	// track's year.
 	Years string
+	// Overlay adds flags, cars and incidents on top of the track.
+	Overlay *Overlay
 }
 
 func (o Options) years(t *Track) string {
@@ -152,11 +154,14 @@ func Render(t *Track, o Options) (image.Image, error) {
 			taken = append(taken, r)
 		}
 	}
+	drawHighlights(dc, p, t, o.Overlay, 14)
 	for _, c := range t.Corners {
 		drawCornerMarker(dc, p, c, 40, 14, false)
 	}
 	drawCornerNames(dc, p, t, 40, 14, 20, taken)
+	drawMarkers(dc, p, o.Overlay, 9)
 	drawTitle(dc, t.Name, fmt.Sprintf("%s, %s · %s", t.Locality, t.Country, o.years(t)))
+	drawBanner(dc, o.Overlay)
 	drawSectorLegend(dc, t, mapHeight-40)
 	drawElevation(dc, t, elevationPanel{x: 48, y: mapHeight, w: mapWidth - 96, h: mapElevationHeight - 50, detailed: true})
 	drawCredit(dc, mapWidth, float64(height))
@@ -193,12 +198,14 @@ func RenderCorner(t *Track, number int, o Options) (image.Image, error) {
 		drawStraightName(dc, p, t, st, trackWidth*scale*1.4)
 	}
 
+	drawHighlights(dc, p, t, o.Overlay, trackWidth*scale)
 	for _, other := range t.Corners {
 		if other.Number != number {
 			drawCornerMarker(dc, p, other, 70, 16, false)
 		}
 	}
 	drawCornerMarker(dc, p, c, 80, 24, true)
+	drawMarkers(dc, p, o.Overlay, 13)
 
 	title := fmt.Sprintf("Turn %d", c.Number)
 	if c.Name != "" {
@@ -209,6 +216,7 @@ func RenderCorner(t *Track, number int, o Options) (image.Image, error) {
 		subtitle = "Also known as " + c.AltName + " · " + subtitle
 	}
 	drawTitle(dc, title, subtitle)
+	drawBanner(dc, o.Overlay)
 	drawInset(dc, t, c)
 	if len(t.Elevation) > 0 {
 		// Cover track that runs past the close-up, then draw the profile.
