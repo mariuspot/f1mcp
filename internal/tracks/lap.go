@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/gif"
 	"math"
+	"sort"
 
 	"github.com/fogleman/gg"
 	xdraw "golang.org/x/image/draw"
@@ -76,8 +77,10 @@ func RenderLapGIF(t *Track, laps []LapTrace, o Options) (*gif.GIF, error) {
 	}
 
 	longest := 0.0
-	for _, l := range laps {
+	events := make([][]lapEvent, len(laps))
+	for i, l := range laps {
 		longest = max(longest, l.Duration)
+		events[i] = l.events()
 	}
 	step := lapSpeedUp * float64(lapFrameDelay) / 100
 
@@ -91,7 +94,7 @@ func RenderLapGIF(t *Track, laps []LapTrace, o Options) (*gif.GIF, error) {
 		dc := gg.NewContextForRGBA(frame)
 		if o.LapEvents {
 			for i, l := range laps {
-				drawLapEvents(dc, p, l, min(T, l.Duration), i, len(laps), outward)
+				drawLapEvents(dc, p, l, events[i], min(T, l.Duration), i, len(laps), outward)
 			}
 		}
 		var placed [][2]float64
@@ -195,27 +198,33 @@ func (l LapTrace) position(T float64) Point {
 	if T <= ps[0][0] {
 		return Point{ps[0][1], ps[0][2]}
 	}
-	for i := 1; i < len(ps); i++ {
-		if ps[i][0] >= T {
-			a, b := ps[i-1], ps[i]
-			f := (T - a[0]) / max(b[0]-a[0], 1e-9)
-			return Point{a[1] + f*(b[1]-a[1]), a[2] + f*(b[2]-a[2])}
-		}
+	i := sort.Search(len(ps), func(i int) bool { return ps[i][0] >= T })
+	if i == len(ps) {
+		last := ps[len(ps)-1]
+		return Point{last[1], last[2]}
 	}
-	last := ps[len(ps)-1]
-	return Point{last[1], last[2]}
+	a, b := ps[i-1], ps[i]
+	f := (T - a[0]) / max(b[0]-a[0], 1e-9)
+	return Point{a[1] + f*(b[1]-a[1]), a[2] + f*(b[2]-a[2])}
 }
 
 // telemetry returns the telemetry sample nearest time T.
 func (l LapTrace) telemetry(T float64) [5]float64 {
-	var best [5]float64
-	bestD := math.Inf(1)
-	for _, s := range l.Telemetry {
-		if d := math.Abs(s[0] - T); d < bestD {
-			best, bestD = s, d
-		}
+	ts := l.Telemetry
+	if len(ts) == 0 {
+		return [5]float64{}
 	}
-	return best
+	i := sort.Search(len(ts), func(i int) bool { return ts[i][0] >= T })
+	switch {
+	case i == 0:
+		return ts[0]
+	case i == len(ts):
+		return ts[len(ts)-1]
+	case T-ts[i-1][0] < ts[i][0]-T:
+		return ts[i-1]
+	default:
+		return ts[i]
+	}
 }
 
 // lapProgress returns the distance round the lap, in metres, of each of a
@@ -342,7 +351,7 @@ func (l LapTrace) events() []lapEvent {
 // gear, up to lap time T. The braking speed and new gear are drawn off the
 // track, each joined to its point by a thin line: on the driver's own side
 // with several drivers, else on outward (+1 right, -1 left of travel).
-func drawLapEvents(dc *gg.Context, p projection, l LapTrace, T float64, driver, drivers int, outward float64) {
+func drawLapEvents(dc *gg.Context, p projection, l LapTrace, events []lapEvent, T float64, driver, drivers int, outward float64) {
 	side, dir := 0.0, outward
 	if drivers > 1 {
 		side = 7 * (float64(driver)*2 - float64(drivers-1))
@@ -371,7 +380,7 @@ func drawLapEvents(dc *gg.Context, p projection, l LapTrace, T float64, driver, 
 		dc.Fill()
 	}
 	gears := 0
-	for _, e := range l.events() {
+	for _, e := range events {
 		if e.t > T {
 			break
 		}

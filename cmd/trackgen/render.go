@@ -112,11 +112,22 @@ func renderLaps(out string, f LapFile) (galleryLaps, error) {
 			return galleryLaps{}, err
 		}
 	}
+	// The follow-camera version is a video, made only if ffmpeg is installed.
+	video := false
+	if haveFFmpeg() {
+		o.LapEvents = true
+		if err := writeFollowVideo(filepath.Join(dir, "lap-follow.mp4"), t, f.Laps, o); err != nil {
+			return galleryLaps{}, err
+		}
+		video = true
+	} else {
+		log.Printf("ffmpeg not found, skipping the follow-camera video for %s", f.Name)
+	}
 	// The first frame is complete; it makes a clean poster.
 	if err := writePNG(filepath.Join(dir, "poster.png"), g.Image[0]); err != nil {
 		return galleryLaps{}, err
 	}
-	return galleryLaps{Dir: "laps/" + f.Name, Laps: f, Title: title}, nil
+	return galleryLaps{Dir: "laps/" + f.Name, Laps: f, Title: title, Video: video}, nil
 }
 
 // renderIncident draws an incident on its track map and nearest corner, into

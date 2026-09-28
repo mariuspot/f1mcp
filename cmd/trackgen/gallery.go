@@ -45,6 +45,7 @@ type galleryLaps struct {
 	Dir   string
 	Title string // e.g. "NOR 1:41.234 vs PIA 1:41.456"
 	Laps  LapFile
+	Video bool // whether the follow-camera video was made
 }
 
 // writeGallery writes index.html listing every layout, incident and lap
@@ -207,6 +208,10 @@ var lapsTmpl = template.Must(template.New("laps").Parse(`<!doctype html>
 <h1>{{.Laps.Session}} {{.Laps.Year}}</h1>
 <p>{{.Title}}</p>
 </header>
+{{if .Video}}<h2>Following the car</h2>
+<p class="muted">Zoomed in like the corner images, with braking zones, braking speeds and gear changes.</p>
+<video class="map" src="lap-follow.mp4" poster="poster.png" autoplay muted loop playsinline controls></video>
+<h2>Whole track</h2>{{end}}
 <img class="map" src="lap.gif" alt="Animation of {{.Title}}">
 <h2>With braking and gear changes</h2>
 <p class="muted">Red marks where each driver was on the brakes, with their speed in km/h as braking started; dots show each gear change and the new gear.</p>
