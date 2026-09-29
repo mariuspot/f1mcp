@@ -91,50 +91,50 @@ type LapAnimationResult struct {
 	Weather   *f1.LapWeather   `json:"weather,omitempty"`
 }
 
-func registerReplay(s *mcp.Server, svc *f1.Service) {
-	mcp.AddTool(s, &mcp.Tool{
+func registerReplay(r *Registry, svc *f1.Service) {
+	add(r, &mcp.Tool{
 		Name: "get_incident",
 		Description: "Explain a red flag, safety car, virtual safety car or yellow flag in a session, from 2023: which cars stopped or slowed and where " +
 			"(nearest turn), and the yellow-flag sectors around them, drawn on the track map (PNG) with a close-up of the nearest turn.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a IncidentArgs) (*mcp.CallToolResult, IncidentResult, error) {
+	}, func(ctx context.Context, a IncidentArgs) (IncidentResult, []Image, error) {
 		e, err := sessionEvent(ctx, svc, &a.SessionArgs)
 		if err != nil {
-			return nil, IncidentResult{}, err
+			return IncidentResult{}, nil, err
 		}
 		if a.Event == "" {
 			a.Event = "red"
 		}
 		key, err := svc.SessionKey(ctx, e, a.Session)
 		if err != nil {
-			return nil, IncidentResult{}, err
+			return IncidentResult{}, nil, err
 		}
 		involved, err := svc.DriverNumbers(ctx, e, a.Session, a.Drivers)
 		if err != nil {
-			return nil, IncidentResult{}, err
+			return IncidentResult{}, nil, err
 		}
 		inc, err := svc.FindIncident(ctx, key, strings.ToLower(a.Event), a.FromLap, involved)
 		if err != nil {
-			return nil, IncidentResult{}, err
+			return IncidentResult{}, nil, err
 		}
 		t, err := tracks.Load(inc.CircuitID, inc.Year)
 		if err != nil {
-			return nil, IncidentResult{}, err
+			return IncidentResult{}, nil, err
 		}
 		o := tracks.Options{Years: strconv.Itoa(inc.Year), Overlay: &inc.Overlay}
-		var content []mcp.Content
+		var content []Image
 		img, err := tracks.Render(t, o)
 		if err != nil {
-			return nil, IncidentResult{}, err
+			return IncidentResult{}, nil, err
 		}
-		if content, err = appendPNG(content, img); err != nil {
-			return nil, IncidentResult{}, err
+		if content, err = appendPNG(content, "map", img); err != nil {
+			return IncidentResult{}, nil, err
 		}
 		if inc.Corner > 0 {
 			if img, err = tracks.RenderCorner(t, inc.Corner, o); err != nil {
-				return nil, IncidentResult{}, err
+				return IncidentResult{}, nil, err
 			}
-			if content, err = appendPNG(content, img); err != nil {
-				return nil, IncidentResult{}, err
+			if content, err = appendPNG(content, "corner", img); err != nil {
+				return IncidentResult{}, nil, err
 			}
 		}
 		out := IncidentResult{Event: e, Session: a.Session, Banner: inc.Overlay.Banner, Caption: inc.Overlay.Caption, Corner: inc.Corner}
@@ -146,21 +146,21 @@ func registerReplay(s *mcp.Server, svc *f1.Service) {
 				out.Flags = append(out.Flags, h.Label)
 			}
 		}
-		return &mcp.CallToolResult{Content: content}, out, nil
+		return out, content, nil
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
+	add(r, &mcp.Tool{
 		Name: "get_lap_animation",
 		Description: "Replay laps on the track map, from 2023: one driver's lap, or several drivers' laps compared as if they started together, " +
 			"from a session or a part of qualifying (q1, q2, q3); each lap by number, or best, first, last or last_flying, per driver with laps. " +
 			"with speed, gear, throttle, brake, tyre and the gap at each point. A PNG still of the end of the lap by default, or an animated GIF. " +
 			"With format faster, a map of which driver was faster through each corner and straight, with the gap all round the lap, and those " +
 			"times. Also returns each lap's time, gap, tyre compound and age, top speed, and the weather.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a LapAnimationArgs) (*mcp.CallToolResult, LapAnimationResult, error) {
+	}, func(ctx context.Context, a LapAnimationArgs) (LapAnimationResult, []Image, error) {
 		var picks []f1.LapPick
 		switch {
 		case len(a.Laps) > 0 && len(a.Drivers) > 0:
-			return nil, LapAnimationResult{}, fmt.Errorf("give drivers (with lap) or laps, not both")
+			return LapAnimationResult{}, nil, fmt.Errorf("give drivers (with lap) or laps, not both")
 		case len(a.Laps) > 0:
 			for _, l := range a.Laps {
 				picks = append(picks, f1.LapPick{Driver: l.Driver, Lap: l.Lap})
@@ -170,42 +170,42 @@ func registerReplay(s *mcp.Server, svc *f1.Service) {
 				picks = append(picks, f1.LapPick{Driver: d, Lap: a.Lap})
 			}
 			if len(picks) == 0 && a.Lap != "" && !strings.EqualFold(a.Lap, f1.PickBest) {
-				return nil, LapAnimationResult{}, fmt.Errorf("lap %q needs drivers", a.Lap)
+				return LapAnimationResult{}, nil, fmt.Errorf("lap %q needs drivers", a.Lap)
 			}
 		}
 		if len(picks) > 4 {
-			return nil, LapAnimationResult{}, fmt.Errorf("at most 4 drivers, not %d", len(picks))
+			return LapAnimationResult{}, nil, fmt.Errorf("at most 4 drivers, not %d", len(picks))
 		}
 		format := strings.ToLower(a.Format)
 		if format != "" && format != "png" && format != "gif" && format != "faster" {
-			return nil, LapAnimationResult{}, fmt.Errorf("format %q: want png, gif or faster", a.Format)
+			return LapAnimationResult{}, nil, fmt.Errorf("format %q: want png, gif or faster", a.Format)
 		}
 		count := 1
 		if format == "faster" {
 			if len(picks) == 1 {
-				return nil, LapAnimationResult{}, fmt.Errorf("format faster compares 2 to 4 laps")
+				return LapAnimationResult{}, nil, fmt.Errorf("format faster compares 2 to 4 laps")
 			}
 			count = 2
 		}
 		e, err := lapSessionEvent(ctx, svc, &a.LapSessionArgs)
 		if err != nil {
-			return nil, LapAnimationResult{}, err
+			return LapAnimationResult{}, nil, err
 		}
 		if err := f1.ValidLapSession(a.Session); err != nil {
-			return nil, LapAnimationResult{}, err
+			return LapAnimationResult{}, nil, err
 		}
 		base, part := f1.SplitSession(a.Session)
 		key, err := svc.SessionKey(ctx, e, base)
 		if err != nil {
-			return nil, LapAnimationResult{}, err
+			return LapAnimationResult{}, nil, err
 		}
 		r, err := svc.ReplayLaps(ctx, key, part, picks, count)
 		if err != nil {
-			return nil, LapAnimationResult{}, err
+			return LapAnimationResult{}, nil, err
 		}
 		t, err := tracks.Load(r.CircuitID, r.Year)
 		if err != nil {
-			return nil, LapAnimationResult{}, err
+			return LapAnimationResult{}, nil, err
 		}
 		out := LapAnimationResult{Event: e, Session: a.Session, Weather: r.Weather}
 		var who []string
@@ -226,38 +226,38 @@ func registerReplay(s *mcp.Server, svc *f1.Service) {
 		if r.Weather != nil {
 			o.Overlay.Caption = r.Weather.String()
 		}
-		var content []mcp.Content
+		var content []Image
 		switch format {
 		case "gif":
 			g, err := tracks.RenderLapGIF(t, r.Laps, o)
 			if err != nil {
-				return nil, LapAnimationResult{}, err
+				return LapAnimationResult{}, nil, err
 			}
 			var b bytes.Buffer
 			if err := gif.EncodeAll(&b, g); err != nil {
-				return nil, LapAnimationResult{}, err
+				return LapAnimationResult{}, nil, err
 			}
-			content = append(content, &mcp.ImageContent{Data: b.Bytes(), MIMEType: "image/gif"})
+			content = append(content, Image{Data: b.Bytes(), MIMEType: "image/gif", Name: "animation"})
 		case "faster":
 			o.LapEvents = false
 			img, cmp, err := tracks.RenderFaster(t, r.Laps, o)
 			if err != nil {
-				return nil, LapAnimationResult{}, err
+				return LapAnimationResult{}, nil, err
 			}
-			if content, err = appendPNGWith(content, img, cmp.FasterColors()); err != nil {
-				return nil, LapAnimationResult{}, err
+			if content, err = appendPNGWith(content, "faster", img, cmp.FasterColors()); err != nil {
+				return LapAnimationResult{}, nil, err
 			}
 			summariseStretches(&out, cmp)
 		default:
 			img, err := tracks.RenderLapStill(t, r.Laps, o)
 			if err != nil {
-				return nil, LapAnimationResult{}, err
+				return LapAnimationResult{}, nil, err
 			}
-			if content, err = appendPNGWith(content, img, tracks.LapStillColors(r.Laps)); err != nil {
-				return nil, LapAnimationResult{}, err
+			if content, err = appendPNGWith(content, "still", img, tracks.LapStillColors(r.Laps)); err != nil {
+				return LapAnimationResult{}, nil, err
 			}
 		}
-		return &mcp.CallToolResult{Content: content}, out, nil
+		return out, content, nil
 	})
 }
 
@@ -281,20 +281,20 @@ func summariseStretches(out *LapAnimationResult, cmp tracks.LapComparison) {
 	}
 }
 
-func appendPNGWith(content []mcp.Content, img image.Image, colors []string) ([]mcp.Content, error) {
+func appendPNGWith(content []Image, name string, img image.Image, colors []string) ([]Image, error) {
 	var b bytes.Buffer
 	if err := tracks.EncodePNGWith(&b, img, colors); err != nil {
 		return content, err
 	}
-	return append(content, &mcp.ImageContent{Data: b.Bytes(), MIMEType: "image/png"}), nil
+	return append(content, Image{Data: b.Bytes(), MIMEType: "image/png", Name: name}), nil
 }
 
-func appendPNG(content []mcp.Content, img image.Image) ([]mcp.Content, error) {
+func appendPNG(content []Image, name string, img image.Image) ([]Image, error) {
 	b, err := pngBytes(img)
 	if err != nil {
 		return content, err
 	}
-	return append(content, &mcp.ImageContent{Data: b, MIMEType: "image/png"}), nil
+	return append(content, Image{Data: b, MIMEType: "image/png", Name: name}), nil
 }
 
 // lapTime formats seconds as a lap time, e.g. "1:42.526".

@@ -160,28 +160,28 @@ func pngBytes(img image.Image) ([]byte, error) {
 	return b.Bytes(), err
 }
 
-func registerTrack(s *mcp.Server, svc *f1.Service) {
-	mcp.AddTool(s, &mcp.Tool{
+func registerTrack(r *Registry, svc *f1.Service) {
+	add(r, &mcp.Tool{
 		Name: "get_track",
 		Description: "Get a circuit's layout (circuits raced from 2023): length, every turn with its name, distance from the line and " +
 			"elevation, named straights, where sectors start, marshal sectors and total climb. Find it by circuit or by year and round.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a TrackArgs) (*mcp.CallToolResult, TrackInfo, error) {
+	}, func(ctx context.Context, a TrackArgs) (TrackInfo, []Image, error) {
 		t, l, err := resolveTrack(ctx, svc, a)
 		if err != nil {
-			return nil, TrackInfo{}, err
+			return TrackInfo{}, nil, err
 		}
-		return nil, trackInfo(t, l), nil
+		return trackInfo(t, l), nil, nil
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
+	add(r, &mcp.Tool{
 		Name: "get_track_map",
 		Description: "Draw a circuit map as a PNG image (circuits raced from 2023): the track coloured by timing sector, kerbs, " +
 			"start/finish, numbered and named turns and an elevation profile; or, with corner, a close-up of that turn. " +
 			"Also returns the track's data as in get_track.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a TrackMapArgs) (*mcp.CallToolResult, TrackInfo, error) {
+	}, func(ctx context.Context, a TrackMapArgs) (TrackInfo, []Image, error) {
 		t, l, err := resolveTrack(ctx, svc, a.TrackArgs)
 		if err != nil {
-			return nil, TrackInfo{}, err
+			return TrackInfo{}, nil, err
 		}
 		o := tracks.Options{Years: l.Years()}
 		var img image.Image
@@ -191,17 +191,14 @@ func registerTrack(s *mcp.Server, svc *f1.Service) {
 			img, err = tracks.Render(t, o)
 		}
 		if err != nil {
-			return nil, TrackInfo{}, err
+			return TrackInfo{}, nil, err
 		}
 		b, err := pngBytes(img)
 		if err != nil {
-			return nil, TrackInfo{}, err
+			return TrackInfo{}, nil, err
 		}
 		info := trackInfo(t, l)
-		return &mcp.CallToolResult{Content: []mcp.Content{
-			&mcp.ImageContent{Data: b, MIMEType: "image/png"},
-			&mcp.ResourceLink{URI: info.Resource, Name: t.Name, MIMEType: "image/png"},
-		}}, info, nil
+		return info, []Image{{Data: b, MIMEType: "image/png", Name: "map", Link: &mcp.ResourceLink{URI: info.Resource, Name: t.Name, MIMEType: "image/png"}}}, nil
 	})
 
 	// One resource per circuit layout: its map as a PNG.
@@ -213,13 +210,13 @@ func registerTrack(s *mcp.Server, svc *f1.Service) {
 			if err != nil {
 				continue
 			}
-			s.AddResource(&mcp.Resource{
+			r.s.AddResource(&mcp.Resource{
 				URI: trackURI(t), Name: id + "-" + strconv.Itoa(l.To), Title: fmt.Sprintf("%s map (%s)", t.Name, l.Years()),
 				Description: fmt.Sprintf("Map of %s, %s, as raced %s", t.Name, t.Country, l.Years()), MIMEType: "image/png",
 			}, trackResource)
 		}
 	}
-	s.AddResourceTemplate(&mcp.ResourceTemplate{
+	r.s.AddResourceTemplate(&mcp.ResourceTemplate{
 		URITemplate: "track://{circuit}/{year}", Name: "track-map", Title: "Circuit map",
 		Description: "Map of a circuit as raced in a year, as a PNG", MIMEType: "image/png",
 	}, trackResource)
