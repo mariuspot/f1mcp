@@ -71,6 +71,7 @@ func TestResolveEvent(t *testing.T) {
 		want  int
 	}{
 		{"15", 15}, {"singapore", 15}, {"Marina Bay", 15}, {"last", 15}, {"", 15}, {"next", 16}, {"monaco", 6}, // Imola was cancelled in 2023
+		{"spa", 12}, {"Spa-Francorchamps", 12}, {"barcelona", 7}, {"catalunya", 7}, {"silver", 10}, // a whole name or word beats part of a word
 	} {
 		e, err := s.ResolveEvent(ctx, 2023, tc.round)
 		if err != nil {

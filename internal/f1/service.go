@@ -3,10 +3,12 @@ package f1
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/mariuspot/f1mcp/internal/jolpica"
 	"github.com/mariuspot/f1mcp/internal/openf1"
@@ -121,13 +123,25 @@ func (s *Service) ResolveEvent(ctx context.Context, year int, round string) (Eve
 		}
 		return Event{}, fmt.Errorf("%d has no round %d (it has %d rounds)", year, n, len(events))
 	}
+	// The closest kind of match wins: a whole name (e.g. the circuit ID
+	// "spa"), then a whole word, then part of a word, so "spa" is Spa, not
+	// the Spanish Grand Prix.
 	var matches []Event
-	for _, e := range events {
-		for _, field := range []string{e.Name, e.Circuit.Name, e.Circuit.Locality, e.Circuit.Country, e.Circuit.ID} {
-			if strings.Contains(strings.ToLower(field), round) {
-				matches = append(matches, e)
-				break
+	for _, match := range []func(field string) bool{
+		func(f string) bool { return f == round },
+		func(f string) bool { return slices.Contains(words(f), round) || containsWords(f, round) },
+		func(f string) bool { return strings.Contains(f, round) },
+	} {
+		for _, e := range events {
+			for _, field := range []string{e.Name, e.Circuit.Name, e.Circuit.Locality, e.Circuit.Country, e.Circuit.ID} {
+				if match(strings.ToLower(field)) {
+					matches = append(matches, e)
+					break
+				}
 			}
+		}
+		if len(matches) > 0 {
+			break
 		}
 	}
 	switch len(matches) {
@@ -152,6 +166,27 @@ func ValidSession(session string) error {
 		}
 	}
 	return fmt.Errorf("unknown session %q (want one of %s)", session, strings.Join(SessionNames, ", "))
+}
+
+// words splits a name into its words, at spaces and punctuation such as the
+// hyphen in "Spa-Francorchamps".
+func words(s string) []string {
+	return strings.FieldsFunc(s, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) })
+}
+
+// containsWords reports whether phrase, of one or more whole words, is in s,
+// e.g. "marina bay" in "Marina Bay Street Circuit".
+func containsWords(s, phrase string) bool {
+	w, p := words(s), words(phrase)
+	if len(p) == 0 {
+		return false
+	}
+	for i := 0; i+len(p) <= len(w); i++ {
+		if slices.Equal(w[i:i+len(p)], p) {
+			return true
+		}
+	}
+	return false
 }
 
 // openf1Names are OpenF1's session names for each session; the first is
