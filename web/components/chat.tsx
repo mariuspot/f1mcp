@@ -29,7 +29,6 @@ export function Chat() {
   const { messages, sendMessage, status, stop, error } = useChat<ChatMessage>({
     transport: new DefaultChatTransport({ api: '/api/chat' }),
   });
-  const bottom = useRef<HTMLDivElement>(null);
   const busy = status === 'submitted' || status === 'streaming';
 
   // Follow the conversation as it grows, including when images finish
@@ -41,7 +40,7 @@ export function Chat() {
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     const grow = new ResizeObserver(() => {
-      if (following.current) bottom.current?.scrollIntoView({ block: 'end' });
+      if (following.current) window.scrollTo({ top: document.body.scrollHeight });
     });
     grow.observe(document.body);
     return () => {
@@ -133,7 +132,6 @@ export function Chat() {
             </div>
           )}
         </div>
-        <div ref={bottom} />
       </main>
 
       <form

@@ -136,7 +136,7 @@ function Img({ img, alt }: { img?: ImageLink; alt: string }) {
   if (!img) return null;
   return (
     <a href={img.url} target="_blank" rel="noreferrer">
-      <img src={img.url} alt={alt} className="block w-full bg-bg" loading="lazy" />
+      <img src={img.url} alt={alt} className="block w-full bg-bg" />
     </a>
   );
 }
@@ -151,10 +151,14 @@ function Who({ d }: { d?: DriverRef }) {
   );
 }
 
+// lapTime formats seconds as a lap or race time: 88.111 as 1:28.111, and
+// 5882.143 as 1:38:02.143.
 export function lapTime(s?: number | null) {
   if (s == null) return '—';
-  const m = Math.floor(s / 60);
-  const rest = (s - m * 60).toFixed(3).padStart(6, '0');
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s - h * 3600) / 60);
+  const rest = (s - h * 3600 - m * 60).toFixed(3).padStart(6, '0');
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${rest}`;
   return m > 0 ? `${m}:${rest}` : rest;
 }
 
