@@ -32,12 +32,27 @@ export function Chat() {
   const bottom = useRef<HTMLDivElement>(null);
   const busy = status === 'submitted' || status === 'streaming';
 
+  // Follow the conversation as it grows, including when images finish
+  // loading, unless the reader has scrolled up to look at something.
+  const following = useRef(true);
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [messages, status]);
+    const onScroll = () => {
+      following.current = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    const grow = new ResizeObserver(() => {
+      if (following.current) bottom.current?.scrollIntoView({ block: 'end' });
+    });
+    grow.observe(document.body);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      grow.disconnect();
+    };
+  }, []);
 
   const send = (text: string) => {
     if (!text.trim() || busy) return;
+    following.current = true;
     sendMessage({ text }, { body: { model } });
     setInput('');
   };
