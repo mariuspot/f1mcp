@@ -189,3 +189,12 @@ type SessionResult struct {
 	Duration    json.RawMessage `json:"duration"`
 	GapToLeader json.RawMessage `json:"gap_to_leader"`
 }
+
+// TeamRadio is a clip of a driver's radio that was broadcast, as an MP3.
+type TeamRadio struct {
+	MeetingKey   int       `json:"meeting_key"`
+	SessionKey   int       `json:"session_key"`
+	Date         time.Time `json:"date"`
+	DriverNumber int       `json:"driver_number"`
+	RecordingURL string    `json:"recording_url"`
+}

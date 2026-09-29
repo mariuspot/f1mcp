@@ -24,6 +24,7 @@ It combines two public F1 APIs behind one consistent set of tools, so the model 
 | `get_track` | A circuit's layout: length, turns with names, distances and elevation, straights, sectors |
 | `get_track_map` | A PNG map of a circuit, or a close-up of one turn |
 | `get_incident` | What caused a red flag, safety car or yellow: cars that stopped, where, and the flagged sectors, drawn on the map and nearest turn (from 2023) |
+| `get_team_radio` | Team radio broadcast in a session: driver, lap, a link to the recording, and a transcript when `OPENAI_API_KEY` is set (from 2023) |
 | `get_lap_animation` | One or more drivers' laps replayed on the map, with speed, gear, throttle, brake, tyre and gap: a PNG still or an animated GIF; or a map of who was faster through each corner and straight, with the gap all round the lap (from 2023) |
 
 Each circuit layout is also a resource, `track://{circuit}/{year}`, a PNG map.

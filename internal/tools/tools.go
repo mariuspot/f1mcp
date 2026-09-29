@@ -21,6 +21,7 @@ func Register(s *mcp.Server, svc *f1.Service) *Registry {
 	registerSession(r, svc)
 	registerTrack(r, svc)
 	registerReplay(r, svc)
+	registerRadio(r, svc)
 	return r
 }
 

@@ -61,6 +61,7 @@ function progressText(name: string, input: Record<string, unknown>): string {
     case 'pitStops': return 'Getting pit stops…';
     case 'tyreStints': return 'Getting tyre stints…';
     case 'raceControl': return 'Reading race control messages…';
+    case 'teamRadio': return `Listening to ${input.driver ? `${input.driver}'s` : 'the'} team radio${session} — transcribing new clips…`;
     case 'weather': return 'Getting the weather…';
     case 'carTelemetry': return `Getting ${input.driver}'s telemetry for lap ${input.lap}…`;
     case 'track': return `Drawing ${input.circuit ?? input.round ?? 'the track'}${input.corner ? `, turn ${input.corner}` : ''}…`;
@@ -83,6 +84,7 @@ function Answer({ name, output, input }: { name: string; output: ToolOutput; inp
     case 'pitStops': return <PitStopsCard r={r} />;
     case 'tyreStints': return <StintsCard r={r} />;
     case 'raceControl': return <RaceControlCard r={r} />;
+    case 'teamRadio': return <RadioCard r={r} />;
     case 'weather': return <WeatherCard r={r} />;
     case 'carTelemetry': return <TelemetryCard r={r} />;
     case 'track': return <TrackCard r={r} images={images} corner={input.corner as number | undefined} />;
@@ -444,7 +446,7 @@ function TrackCard({ r, images, corner }: { r: { name: string; locality: string;
   );
 }
 
-function IncidentCard({ r, images }: { r: { event: Event; session: string; banner: string; caption?: string; flags?: string[] }; images: ImageLink[] }) {
+function IncidentCard({ r, images }: { r: { event: Event; session: string; banner: string; caption?: string; flags?: string[]; radio?: RadioClip[] }; images: ImageLink[] }) {
   return (
     <Card title={r.banner} subtitle={eventTitle(r.event)}>
       {r.caption && <p className="px-4 py-2 text-sm">{r.caption}</p>}
@@ -453,6 +455,7 @@ function IncidentCard({ r, images }: { r: { event: Event; session: string; banne
           <Img key={img.url} img={img} alt={img.name === 'corner' ? 'Close-up of the nearest turn' : 'Track map'} />
         ))}
       </div>
+      <RadioList clips={r.radio} title="Team radio around it" />
     </Card>
   );
 }
@@ -486,7 +489,7 @@ function LapChips({ laps }: { laps: LapSummary[] }) {
   );
 }
 
-function CompareCard({ r, images }: { r: { event: Event; session: string; laps: LapSummary[]; stretches?: { name: string; fastest: string; margin_seconds: number; seconds: number[] }[] }; images: ImageLink[] }) {
+function CompareCard({ r, images }: { r: { event: Event; session: string; laps: LapSummary[]; stretches?: { name: string; fastest: string; margin_seconds: number; seconds: number[] }[]; radio?: RadioClip[] }; images: ImageLink[] }) {
   return (
     <Card title={r.laps.map(l => l.driver).join(' vs ')} subtitle={`${eventTitle(r.event)} · ${r.session.toUpperCase()}`}>
       <Img img={images.find(i => i.name === 'faster') ?? images[0]} alt="Where each driver was faster" />
@@ -501,15 +504,53 @@ function CompareCard({ r, images }: { r: { event: Event; session: string; laps: 
           />
         </details>
       )}
+      <RadioList clips={r.radio} title="Team radio on these laps" />
     </Card>
   );
 }
 
-function ReplayCard({ r, images }: { r: { event: Event; session: string; laps: LapSummary[]; weather?: { air_c: number; track_c: number; rain: boolean } }; images: ImageLink[] }) {
+function ReplayCard({ r, images }: { r: { event: Event; session: string; laps: LapSummary[]; weather?: { air_c: number; track_c: number; rain: boolean }; radio?: RadioClip[] }; images: ImageLink[] }) {
   return (
     <Card title={r.laps.map(l => `${l.driver} ${lapTime(l.seconds)}`).join(' vs ')} subtitle={`${eventTitle(r.event)} · ${r.session.toUpperCase()}`}>
       <Img img={images[0]} alt="Lap replay" />
       <LapChips laps={r.laps} />
+      <RadioList clips={r.radio} title="Team radio on this lap" />
+    </Card>
+  );
+}
+
+type RadioClip = { time: string; lap?: number; driver: DriverRef; url: string; transcript?: string };
+
+// RadioList plays clips straight from Formula 1's servers, with what was
+// said under each.
+function RadioList({ clips, title }: { clips?: RadioClip[]; title?: string }) {
+  if (!clips?.length) return null;
+  return (
+    <div className="border-t border-line">
+      {title && <div className="px-4 pt-2.5 text-xs font-medium uppercase tracking-wide text-muted">{title}</div>}
+      <ul className="max-h-[30rem] divide-y divide-line/60 overflow-auto">
+        {clips.map(c => (
+          <li key={c.url} className="px-4 py-2.5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
+              <span className="font-semibold">{c.driver.code ?? c.driver.name}</span>
+              <span className="text-muted tabular-nums">
+                {c.lap ? `Lap ${c.lap} · ` : ''}
+                {new Date(c.time).toISOString().slice(11, 19)} UTC
+              </span>
+              <audio controls preload="none" src={c.url} className="h-8 w-full max-w-xs sm:ml-auto" />
+            </div>
+            {c.transcript && <p className="mt-1.5 text-sm italic text-text/85">“{c.transcript}”</p>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function RadioCard({ r }: { r: { event: Event; session: string; clips: RadioClip[]; page?: { total: number } } }) {
+  return (
+    <Card title={`${eventTitle(r.event)} · team radio`} subtitle={`${r.session.toUpperCase()} · ${r.page?.total ?? r.clips.length} clips`}>
+      {r.clips.length ? <RadioList clips={r.clips} /> : <p className="px-4 py-3 text-sm text-muted">No radio was broadcast for this.</p>}
     </Card>
   );
 }

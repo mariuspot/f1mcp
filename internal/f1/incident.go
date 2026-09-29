@@ -19,13 +19,16 @@ import (
 // was and who was involved, ready to draw on the track map and the nearest
 // corner.
 type Incident struct {
-	Name       string         `json:"name"`
-	CircuitID  string         `json:"circuit_id"`
-	Year       int            `json:"year"`
-	SessionKey int            `json:"session_key"`
-	Session    string         `json:"session"` // e.g. "Monaco Grand Prix · Race"
-	Corner     int            `json:"corner"`  // turn shown in the close-up
-	Overlay    tracks.Overlay `json:"overlay"`
+	Name       string `json:"name"`
+	CircuitID  string `json:"circuit_id"`
+	Year       int    `json:"year"`
+	SessionKey int    `json:"session_key"`
+	Session    string `json:"session"` // e.g. "Monaco Grand Prix · Race"
+	Corner     int    `json:"corner"`  // turn shown in the close-up
+	// Time is when it happened: the first yellow flag still showing when
+	// the event came, or the event itself.
+	Time    time.Time      `json:"time,omitempty"`
+	Overlay tracks.Overlay `json:"overlay"`
 }
 
 const (
@@ -381,6 +384,7 @@ func (s *Service) FindIncident(ctx context.Context, sessionKey int, event string
 		SessionKey: sessionKey,
 		Session:    meeting + " · " + sess.SessionName,
 		Corner:     corner,
+		Time:       anchor.UTC(),
 		Overlay:    o,
 	}, nil
 }

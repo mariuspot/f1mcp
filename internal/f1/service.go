@@ -27,6 +27,8 @@ type Service struct {
 	jol *jolpica.Client
 	of1 *openf1.Client
 	now func() time.Time
+	// transcriber, if set, transcribes team radio.
+	transcriber Transcriber
 
 	mu    sync.Mutex
 	cache map[string]cached
