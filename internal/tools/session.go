@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -17,7 +18,7 @@ type PageArgs struct {
 }
 
 type LapsArgs struct {
-	SessionArgs
+	LapSessionArgs
 	Driver string `json:"driver,omitempty" jsonschema:"driver code (VER), car number or name; lists every lap of that driver"`
 	Lap    int    `json:"lap,omitempty" jsonschema:"lap number; lists that lap for every driver"`
 	PageArgs
@@ -95,7 +96,7 @@ type WeatherResult struct {
 }
 
 type TelemetryArgs struct {
-	SessionArgs
+	LapSessionArgs
 	Driver string `json:"driver" jsonschema:"driver code (VER), car number or name"`
 	Lap    int    `json:"lap" jsonschema:"lap number"`
 	Detail bool   `json:"detail,omitempty" jsonschema:"also return the car data readings (about 4 a second)"`
@@ -118,13 +119,22 @@ func sessionEvent(ctx context.Context, svc *f1.Service, a *SessionArgs) (f1.Even
 	return svc.ResolveEvent(ctx, a.Year, a.Round)
 }
 
+// lapSessionEvent is sessionEvent for the lap tools.
+func lapSessionEvent(ctx context.Context, svc *f1.Service, a *LapSessionArgs) (f1.Event, error) {
+	if a.Session == "" {
+		a.Session = f1.Race
+	}
+	a.Session = strings.ToLower(a.Session)
+	return svc.ResolveEvent(ctx, a.Year, a.Round)
+}
+
 func registerSession(s *mcp.Server, svc *f1.Service) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "get_laps",
-		Description: "Get lap times and sector times (seconds) for a session, from 2023. By default, each driver's best lap, fastest first, " +
-			"with the gap to the fastest. With driver: every lap of that driver. With lap: that lap for every driver.",
+		Description: "Get lap times and sector times (seconds) for a session or a part of qualifying (q1, q2, q3), from 2023. By default, each " +
+			"driver's best lap, fastest first, with the gap to the fastest. With driver: every lap of that driver. With lap: that lap for every driver.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, a LapsArgs) (*mcp.CallToolResult, LapsResult, error) {
-		e, err := sessionEvent(ctx, svc, &a.SessionArgs)
+		e, err := lapSessionEvent(ctx, svc, &a.LapSessionArgs)
 		if err != nil {
 			return nil, LapsResult{}, err
 		}
@@ -241,7 +251,7 @@ func registerSession(s *mcp.Server, svc *f1.Service) {
 			"and each braking zone (speed before and at its slowest, duration, and the corner braked for, e.g. 'Turn 1, La Source'). " +
 			"With detail, the readings (about 4 a second: speed, throttle, brake, gear, RPM).",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, a TelemetryArgs) (*mcp.CallToolResult, TelemetryResult, error) {
-		e, err := sessionEvent(ctx, svc, &a.SessionArgs)
+		e, err := lapSessionEvent(ctx, svc, &a.LapSessionArgs)
 		if err != nil {
 			return nil, TelemetryResult{}, err
 		}

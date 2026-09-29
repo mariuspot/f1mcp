@@ -47,7 +47,7 @@ type LapTelemetry struct {
 // CarTelemetry returns a driver's lap with its car data. Braking zones and
 // the top speed are placed on the track, e.g. "Turn 1, La Source".
 func (s *Service) CarTelemetry(ctx context.Context, e Event, session, driver string, lap int) (LapTelemetry, error) {
-	sd, err := s.session(ctx, e, session)
+	sd, err := s.lapSession(ctx, e, session)
 	if err != nil {
 		return LapTelemetry{}, err
 	}
