@@ -1,6 +1,9 @@
 package f1
 
 import (
+	"context"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -76,5 +79,70 @@ func TestSplitSession(t *testing.T) {
 		if s, p := SplitSession(tc.in); s != tc.session || p != tc.part {
 			t.Errorf("SplitSession(%q) = %q, %d; want %q, %d", tc.in, s, p, tc.session, tc.part)
 		}
+	}
+}
+
+type fakeTranscriber struct {
+	mu      sync.Mutex
+	prompts []string
+}
+
+func (f *fakeTranscriber) Transcribe(_ context.Context, url, prompt string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.prompts = append(f.prompts, prompt)
+	return "transcript of " + url[strings.LastIndex(url, "/")+1:], nil
+}
+
+// Clips get the lap the driver was on when they were broadcast, from the lap
+// start times (the fixture has only Verstappen's lap 8, from 12:15:42).
+func TestTeamRadio(t *testing.T) {
+	s := testService(t, "2023-09-20T00:00:00Z")
+	ctx := context.Background()
+	e, err := s.ResolveEvent(ctx, 2023, "singapore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	clips, err := s.TeamRadio(ctx, e, Race, "VER", 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(clips) != 5 {
+		t.Fatalf("got %d VER clips, want 5", len(clips))
+	}
+	for i, c := range clips {
+		if c.Driver.Code != "VER" || c.URL == "" || c.Transcript != "" {
+			t.Errorf("clip %d: %+v", i, c)
+		}
+		if i > 0 && c.Time.Before(clips[i-1].Time) {
+			t.Error("clips out of order")
+		}
+		wantLap := 0
+		if !c.Time.Before(time.Date(2023, 9, 17, 12, 15, 42, 0, time.UTC)) {
+			wantLap = 8
+		}
+		if c.Lap != wantLap {
+			t.Errorf("clip at %s on lap %d, want %d", c.Time.Format("15:04:05"), c.Lap, wantLap)
+		}
+	}
+	from8, err := s.TeamRadio(ctx, e, Race, "VER", 8, 0)
+	if err != nil || len(from8) != 3 {
+		t.Errorf("from lap 8: %d clips, %v; want 3", len(from8), err)
+	}
+	all, err := s.TeamRadio(ctx, e, Race, "", 0, 0)
+	if err != nil || len(all) != 65 {
+		t.Errorf("all drivers: %d clips, %v; want 65", len(all), err)
+	}
+
+	tr := &fakeTranscriber{}
+	s.WithTranscriber(tr)
+	s.TranscribeClips(ctx, clips)
+	for _, c := range clips {
+		if !strings.HasPrefix(c.Transcript, "transcript of ") {
+			t.Errorf("transcript = %q", c.Transcript)
+		}
+	}
+	if len(tr.prompts) != 5 || !strings.Contains(tr.prompts[0], "Max Verstappen") {
+		t.Errorf("prompts = %q", tr.prompts)
 	}
 }

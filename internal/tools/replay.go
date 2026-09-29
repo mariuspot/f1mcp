@@ -9,6 +9,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -35,6 +36,9 @@ type IncidentResult struct {
 	Corner  int      `json:"corner,omitempty"` // the turn nearest the incident
 	Cars    []string `json:"cars,omitempty"`   // the cars involved, where they stopped or slowed
 	Flags   []string `json:"flags,omitempty"`  // the yellow-flag sectors around it
+	// Radio is team radio broadcast around it, with transcripts when
+	// available.
+	Radio []f1.RadioClip `json:"radio,omitempty"`
 }
 
 type LapAnimationArgs struct {
@@ -89,6 +93,8 @@ type LapAnimationResult struct {
 	Laps      []LapSummary     `json:"laps"`
 	Stretches []StretchSummary `json:"stretches,omitempty"`
 	Weather   *f1.LapWeather   `json:"weather,omitempty"`
+	// Radio is team radio broadcast during these laps.
+	Radio []f1.RadioClip `json:"radio,omitempty"`
 }
 
 func registerReplay(r *Registry, svc *f1.Service) {
@@ -144,6 +150,12 @@ func registerReplay(r *Registry, svc *f1.Service) {
 		for _, h := range inc.Overlay.Highlights {
 			if !h.Faint && h.Label != "" {
 				out.Flags = append(out.Flags, h.Label)
+			}
+		}
+		if !inc.Time.IsZero() {
+			if clips, err := svc.RadioBetween(ctx, key, inc.Time.Add(-30*time.Second), inc.Time.Add(5*time.Minute), 0); err == nil {
+				svc.TranscribeClips(ctx, clips)
+				out.Radio = clips
 			}
 		}
 		return out, content, nil
@@ -221,6 +233,13 @@ func registerReplay(r *Registry, svc *f1.Service) {
 			out.Laps = append(out.Laps, ls)
 			who = append(who, fmt.Sprintf("%s %s", l.Driver, lapTime(l.Duration)))
 		}
+		for _, l := range r.Laps {
+			end := l.Started.Add(time.Duration((l.Duration + 15) * float64(time.Second)))
+			if clips, err := svc.RadioBetween(ctx, key, l.Started, end, l.Number); err == nil {
+				out.Radio = append(out.Radio, clips...)
+			}
+		}
+		svc.TranscribeClips(ctx, out.Radio)
 		o := tracks.Options{Years: strconv.Itoa(r.Year), LapEvents: a.Braking,
 			Overlay: &tracks.Overlay{Banner: r.Session + " · " + strings.Join(who, " vs "), BannerColor: "#2C2C3A"}}
 		if r.Weather != nil {

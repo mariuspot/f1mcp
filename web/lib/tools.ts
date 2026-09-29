@@ -145,6 +145,19 @@ export const tools = {
       drivers: z.array(z.string()).optional().describe('drivers known to be involved'),
     }),
   ),
+  teamRadio: f1Tool(
+    'get_team_radio',
+    "Team radio broadcast in a session or part of qualifying, from 2023: time, driver, lap, and a transcript of what was said. Only the clips Formula 1 broadcast exist (usually 10-60 a session). Filter by driver and laps. The page plays each clip.",
+    z.object({
+      year,
+      round,
+      session: lapSession,
+      driver: driver.optional(),
+      from_lap: z.number().int().optional(),
+      to_lap: z.number().int().optional(),
+      ...page,
+    }),
+  ),
   compareLaps: f1Tool(
     'get_lap_animation',
     "Compare 2-4 drivers' laps, from 2023: a map coloured by who was faster through each corner and straight, the gap all round the lap, each stretch's times, and each lap's time, tyre and top speed. Without laps, the two fastest in the session.",

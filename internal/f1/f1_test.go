@@ -50,9 +50,11 @@ func testService(t *testing.T, now string) *Service {
 		"/2023/15/drivers/":              "drivers_2023_15",
 	})
 	of1 := fakeAPI(t, "../openf1/testdata", map[string]string{
-		"/meetings": "meetings",
-		"/sessions": "sessions",
-		"/drivers":  "drivers",
+		"/meetings":   "meetings",
+		"/sessions":   "sessions",
+		"/drivers":    "drivers",
+		"/team_radio": "team_radio",
+		"/laps":       "laps",
 	})
 	s := New(jolpica.NewClient(jol.URL, jol.Client()), openf1.NewClient(of1.URL, of1.Client()))
 	at, err := time.Parse(time.RFC3339, now)

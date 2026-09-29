@@ -19,7 +19,7 @@ const examples = [
   'Compare Verstappen and Norris in Q3 at Spa 2026: where was each faster?',
   'What caused the red flag at Monaco 2024?',
   'Replay Antonelli’s pole lap at Silverstone 2026 as a GIF',
-  'Show me Turn 1 at Monza',
+  'What did Verstappen say on the radio during the 2026 British Grand Prix?',
   'How did the championship look after round 10 this year?',
 ];
 

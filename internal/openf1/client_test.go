@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -309,5 +310,21 @@ func TestHTTPError(t *testing.T) {
 
 	if _, err := NewClient(srv.URL, srv.Client()).Meetings(context.Background(), MeetingsFilter{Year: 2023}); err == nil {
 		t.Fatal("want error for 500 response, got nil")
+	}
+}
+
+func TestTeamRadio(t *testing.T) {
+	c := goldenClient(t, "team_radio", "/team_radio", "session_key=9165")
+	got, err := c.TeamRadio(context.Background(), SessionDriverFilter{SessionKey: "9165"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) == 0 {
+		t.Fatal("no clips")
+	}
+	for _, r := range got {
+		if r.SessionKey != 9165 || r.DriverNumber == 0 || r.Date.IsZero() || !strings.HasSuffix(r.RecordingURL, ".mp3") {
+			t.Fatalf("unexpected clip: %+v", r)
+		}
 	}
 }
