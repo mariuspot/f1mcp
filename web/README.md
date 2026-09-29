@@ -29,3 +29,21 @@ Or run both in Docker from the repository root, with `ANTHROPIC_API_KEY` in `.en
 ```sh
 docker compose up --build            # http://localhost:3000
 ```
+
+## Hosting
+
+`compose.prod.yaml` runs it on one server behind [Caddy](https://caddyserver.com), which gets an HTTPS certificate for the domain automatically. On the server, with the repository cloned and a `.env` next to `compose.yaml`:
+
+```sh
+ANTHROPIC_API_KEY=…
+PITWALL_DOMAIN=f1.mariuspotgieter.me
+PITWALL_PASSCODE=…            # shared with the people who may use it
+# PITWALL_HOURLY_LIMIT=30     # questions per visitor per hour
+# PITWALL_DAILY_LIMIT=300     # questions per day in all
+```
+
+```sh
+docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+```
+
+Everything but the sign-in page needs the passcode. Signing in sets a cookie for 90 days, and changing `PITWALL_PASSCODE` signs everyone out. Questions are limited per visitor and per day, so a leaked passcode can't run up a large bill. Setting a monthly spend limit in the Anthropic Console is still a good idea.

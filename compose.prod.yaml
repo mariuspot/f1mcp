@@ -1,0 +1,35 @@
+# Production on one server, on top of compose.yaml: Caddy serves the app
+# over HTTPS, and only Caddy is reachable from outside.
+#
+#   docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+#
+# .env next to this file needs ANTHROPIC_API_KEY, PITWALL_PASSCODE and
+# PITWALL_DOMAIN (e.g. f1.mariuspotgieter.me), and may set
+# PITWALL_HOURLY_LIMIT (default 30 questions per visitor) and
+# PITWALL_DAILY_LIMIT (default 300 in all).
+services:
+  web:
+    ports: !reset []
+    environment:
+      PITWALL_PASSCODE: ${PITWALL_PASSCODE:?set PITWALL_PASSCODE in .env}
+      PITWALL_HOURLY_LIMIT: ${PITWALL_HOURLY_LIMIT:-30}
+      PITWALL_DAILY_LIMIT: ${PITWALL_DAILY_LIMIT:-300}
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [web]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      PITWALL_DOMAIN: ${PITWALL_DOMAIN:?set PITWALL_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

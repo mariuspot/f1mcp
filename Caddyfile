@@ -1,0 +1,6 @@
+# Serves Pit Wall over HTTPS at $PITWALL_DOMAIN, with a certificate from
+# Let's Encrypt. Used by compose.prod.yaml.
+{$PITWALL_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:3000
+}

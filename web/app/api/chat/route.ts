@@ -7,6 +7,7 @@ import {
   toUIMessageStream,
 } from 'ai';
 import { instructions, models, route, type ModelChoice } from '@/lib/agent';
+import { allowQuestion } from '@/lib/limits';
 import { tools } from '@/lib/tools';
 import type { ChatMessage } from '@/lib/types';
 
@@ -14,6 +15,9 @@ import type { ChatMessage } from '@/lib/types';
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
+  const limited = allowQuestion(req);
+  if (limited) return limited;
+
   const { messages, model = 'auto' }: { messages: ChatMessage[]; model?: ModelChoice } = await req.json();
 
   const routed = model === 'auto';
