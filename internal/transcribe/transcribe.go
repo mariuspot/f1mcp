@@ -21,8 +21,10 @@ import (
 
 const (
 	DefaultBaseURL = "https://api.openai.com/v1"
-	DefaultModel   = "gpt-4o-transcribe"
-	maxClipBytes   = 10 << 20
+	// DefaultModel is whisper-1: on team radio it transcribes the whole
+	// clip, where gpt-4o-transcribe tends to stop at the first pause.
+	DefaultModel = "whisper-1"
+	maxClipBytes = 10 << 20
 )
 
 // Transcriber transcribes audio clips by URL. Transcripts are kept in memory
@@ -59,7 +61,7 @@ func (t *Transcriber) WithBaseURL(u string) *Transcriber {
 // Transcribe returns what is said in the clip at audioURL. prompt primes
 // the model with names and terms it is likely to hear.
 func (t *Transcriber) Transcribe(ctx context.Context, audioURL, prompt string) (string, error) {
-	id := cacheID(audioURL)
+	id := cacheID(t.model, audioURL)
 	t.mu.Lock()
 	text, ok := t.done[id]
 	t.mu.Unlock()
@@ -95,8 +97,10 @@ func (t *Transcriber) keep(id, text string, write bool) string {
 	return text
 }
 
-func cacheID(audioURL string) string {
-	sum := sha256.Sum256([]byte(audioURL))
+// cacheID names a clip's transcript by model, so changing the model
+// transcribes clips again.
+func cacheID(model, audioURL string) string {
+	sum := sha256.Sum256([]byte(model + " " + audioURL))
 	return hex.EncodeToString(sum[:16])
 }
 
