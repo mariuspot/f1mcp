@@ -1,0 +1,19 @@
+# Runs the Pit Wall chat (http://localhost:3000) with the f1mcp service it
+# calls. Put ANTHROPIC_API_KEY in a .env file next to this one.
+services:
+  api:
+    build: .
+    command: ["-transport", "http"]
+    restart: unless-stopped
+    # Not published: only the web app calls it. Add "8080:8080" to use MCP
+    # over HTTP from outside.
+    expose: ["8080"]
+
+  web:
+    build: ./web
+    restart: unless-stopped
+    depends_on: [api]
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY in .env}
+      F1_API_URL: http://api:8080
+    ports: ["3000:3000"]

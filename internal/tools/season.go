@@ -48,46 +48,46 @@ type DriversResult struct {
 	Drivers []f1.Driver `json:"drivers"`
 }
 
-func registerSeason(s *mcp.Server, svc *f1.Service) {
-	mcp.AddTool(s, &mcp.Tool{
+func registerSeason(r *Registry, svc *f1.Service) {
+	add(r, &mcp.Tool{
 		Name: "get_schedule",
 		Description: "Get a Formula 1 season's race calendar: each round's event name, circuit (with the circuit ID used by track tools), " +
 			"session start times in UTC, and whether it has a sprint. Any season from 1950.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a ScheduleArgs) (*mcp.CallToolResult, ScheduleResult, error) {
+	}, func(ctx context.Context, a ScheduleArgs) (ScheduleResult, []Image, error) {
 		events, err := svc.Schedule(ctx, a.Year)
 		if err != nil {
-			return nil, ScheduleResult{}, err
+			return ScheduleResult{}, nil, err
 		}
 		year := a.Year
 		if len(events) > 0 {
 			year = events[0].Year
 		}
-		return nil, ScheduleResult{Year: year, Events: events}, nil
+		return ScheduleResult{Year: year, Events: events}, nil, nil
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
+	add(r, &mcp.Tool{
 		Name: "get_session_results",
 		Description: "Get the classification of a session: race and sprint (positions, grid, laps, status, points, time or gap in seconds, fastest lap), " +
 			"qualifying (Q1-Q3 times in seconds), or practice and sprint qualifying (best lap and gap; from 2023). Races, sprints and qualifying from 1950.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a SessionArgs) (*mcp.CallToolResult, SessionResultsResult, error) {
+	}, func(ctx context.Context, a SessionArgs) (SessionResultsResult, []Image, error) {
 		if a.Session == "" {
 			a.Session = f1.Race
 		}
 		e, err := svc.ResolveEvent(ctx, a.Year, a.Round)
 		if err != nil {
-			return nil, SessionResultsResult{}, err
+			return SessionResultsResult{}, nil, err
 		}
 		rs, err := svc.SessionResults(ctx, e, a.Session)
 		if err != nil {
-			return nil, SessionResultsResult{}, err
+			return SessionResultsResult{}, nil, err
 		}
-		return nil, SessionResultsResult{Event: e, Session: a.Session, Results: rs}, nil
+		return SessionResultsResult{Event: e, Session: a.Session, Results: rs}, nil, nil
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
+	add(r, &mcp.Tool{
 		Name:        "get_standings",
 		Description: "Get the drivers' or teams' championship standings (position, points, wins), after a given round or the latest. Any season from 1950.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a StandingsArgs) (*mcp.CallToolResult, StandingsResult, error) {
+	}, func(ctx context.Context, a StandingsArgs) (StandingsResult, []Image, error) {
 		round := 0
 		if a.Round != "" {
 			if n, err := strconv.Atoi(a.Round); err == nil {
@@ -95,7 +95,7 @@ func registerSeason(s *mcp.Server, svc *f1.Service) {
 			} else {
 				e, err := svc.ResolveEvent(ctx, a.Year, a.Round)
 				if err != nil {
-					return nil, StandingsResult{}, err
+					return StandingsResult{}, nil, err
 				}
 				round = e.Round
 			}
@@ -105,28 +105,28 @@ func registerSeason(s *mcp.Server, svc *f1.Service) {
 		}
 		st, after, err := svc.Standings(ctx, a.Year, round, a.Championship)
 		if err != nil {
-			return nil, StandingsResult{}, err
+			return StandingsResult{}, nil, err
 		}
-		return nil, StandingsResult{Year: svc.Year(a.Year), AfterRound: after, Championship: a.Championship, Standings: st}, nil
+		return StandingsResult{Year: svc.Year(a.Year), AfterRound: after, Championship: a.Championship, Standings: st}, nil, nil
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
+	add(r, &mcp.Tool{
 		Name: "list_drivers",
 		Description: "List the drivers in a season or one event: code, name, race number, team, nationality and Wikipedia link, " +
 			"plus team colour and a headshot photo link from 2023.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a DriversArgs) (*mcp.CallToolResult, DriversResult, error) {
+	}, func(ctx context.Context, a DriversArgs) (DriversResult, []Image, error) {
 		var e *f1.Event
 		if a.Round != "" {
 			ev, err := svc.ResolveEvent(ctx, a.Year, a.Round)
 			if err != nil {
-				return nil, DriversResult{}, err
+				return DriversResult{}, nil, err
 			}
 			e = &ev
 		}
 		ds, err := svc.Drivers(ctx, a.Year, e)
 		if err != nil {
-			return nil, DriversResult{}, err
+			return DriversResult{}, nil, err
 		}
-		return nil, DriversResult{Year: svc.Year(a.Year), Event: e, Drivers: ds}, nil
+		return DriversResult{Year: svc.Year(a.Year), Event: e, Drivers: ds}, nil, nil
 	})
 }

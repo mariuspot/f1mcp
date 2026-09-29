@@ -1,5 +1,7 @@
 // Command f1mcp runs the f1mcp MCP server, over stdio (the default, e.g. for
-// `docker run -i`) or streamable HTTP.
+// `docker run -i`) or HTTP. Over HTTP it also serves the tools as a JSON web
+// API for the chat front end, under /api/ and /img/; MCP is at every other
+// path.
 package main
 
 import (
@@ -14,6 +16,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/mariuspot/f1mcp/internal/api"
 	"github.com/mariuspot/f1mcp/internal/server"
 )
 
@@ -27,14 +30,19 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	s := server.New(version)
+	s, reg := server.New(version)
 	switch *transport {
 	case "stdio":
 		if err := s.Run(ctx, &mcp.StdioTransport{}); err != nil && !errors.Is(err, context.Canceled) {
 			log.Fatal(err)
 		}
 	case "http":
-		srv := &http.Server{Addr: *addr, Handler: mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, nil)}
+		mux := http.NewServeMux()
+		web := api.Handler(reg, 256<<20)
+		mux.Handle("/api/", web)
+		mux.Handle("/img/", web)
+		mux.Handle("/", mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, nil))
+		srv := &http.Server{Addr: *addr, Handler: mux}
 		go func() {
 			<-ctx.Done()
 			srv.Shutdown(context.Background())

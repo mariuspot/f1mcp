@@ -128,113 +128,113 @@ func lapSessionEvent(ctx context.Context, svc *f1.Service, a *LapSessionArgs) (f
 	return svc.ResolveEvent(ctx, a.Year, a.Round)
 }
 
-func registerSession(s *mcp.Server, svc *f1.Service) {
-	mcp.AddTool(s, &mcp.Tool{
+func registerSession(r *Registry, svc *f1.Service) {
+	add(r, &mcp.Tool{
 		Name: "get_laps",
 		Description: "Get lap times and sector times (seconds) for a session or a part of qualifying (q1, q2, q3), from 2023. By default, each " +
 			"driver's best lap, fastest first, with the gap to the fastest. With driver: every lap of that driver. With lap: that lap for every driver.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a LapsArgs) (*mcp.CallToolResult, LapsResult, error) {
+	}, func(ctx context.Context, a LapsArgs) (LapsResult, []Image, error) {
 		e, err := lapSessionEvent(ctx, svc, &a.LapSessionArgs)
 		if err != nil {
-			return nil, LapsResult{}, err
+			return LapsResult{}, nil, err
 		}
 		out := LapsResult{Event: e, Session: a.Session}
 		if a.Driver == "" && a.Lap == 0 {
 			out.BestLaps, err = svc.BestLaps(ctx, e, a.Session)
-			return nil, out, err
+			return out, nil, err
 		}
 		laps, err := svc.Laps(ctx, e, a.Session, a.Driver, a.Lap)
 		if err != nil {
-			return nil, LapsResult{}, err
+			return LapsResult{}, nil, err
 		}
 		p := f1.Page{}
 		out.Laps, p = f1.Paginate(laps, a.Cursor, a.Limit)
 		out.Page = &p
-		return nil, out, nil
+		return out, nil, nil
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
+	add(r, &mcp.Tool{
 		Name: "get_race_order",
 		Description: "Get the running order at the end of a lap of a race or sprint (default: the last lap), from 2023: position, laps completed, " +
 			"gap to the leader and interval to the car ahead in seconds (from lap start times, so within a few hundredths of the official gaps), " +
 			"or laps down. With lap_chart, every driver's position on every lap.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a RaceOrderArgs) (*mcp.CallToolResult, RaceOrderResult, error) {
+	}, func(ctx context.Context, a RaceOrderArgs) (RaceOrderResult, []Image, error) {
 		e, err := sessionEvent(ctx, svc, &a.SessionArgs)
 		if err != nil {
-			return nil, RaceOrderResult{}, err
+			return RaceOrderResult{}, nil, err
 		}
 		ro, err := svc.RaceOrder(ctx, e, a.Session, a.Lap, a.LapChart)
 		if err != nil {
-			return nil, RaceOrderResult{}, err
+			return RaceOrderResult{}, nil, err
 		}
-		return nil, RaceOrderResult{Event: e, Session: a.Session, RaceOrder: ro}, nil
+		return RaceOrderResult{Event: e, Session: a.Session, RaceOrder: ro}, nil, nil
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
+	add(r, &mcp.Tool{
 		Name: "get_pit_stops",
 		Description: "Get a race's pit stops, from 2023: driver, stop number, lap, pit lane time and (when known) stationary time in seconds, " +
 			"and the tyre compounds before and after.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a PitStopsArgs) (*mcp.CallToolResult, PitStopsResult, error) {
+	}, func(ctx context.Context, a PitStopsArgs) (PitStopsResult, []Image, error) {
 		e, err := svc.ResolveEvent(ctx, a.Year, a.Round)
 		if err != nil {
-			return nil, PitStopsResult{}, err
+			return PitStopsResult{}, nil, err
 		}
 		ps, err := svc.PitStops(ctx, e, a.Driver)
 		if err != nil {
-			return nil, PitStopsResult{}, err
+			return PitStopsResult{}, nil, err
 		}
-		return nil, PitStopsResult{Event: e, PitStops: ps}, nil
+		return PitStopsResult{Event: e, PitStops: ps}, nil, nil
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
+	add(r, &mcp.Tool{
 		Name:        "get_tyre_stints",
 		Description: "Get each driver's tyre stints in a session, from 2023: compound, first and last lap, laps run, and tyre age at the start.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a DriverFilterArgs) (*mcp.CallToolResult, StintsResult, error) {
+	}, func(ctx context.Context, a DriverFilterArgs) (StintsResult, []Image, error) {
 		e, err := sessionEvent(ctx, svc, &a.SessionArgs)
 		if err != nil {
-			return nil, StintsResult{}, err
+			return StintsResult{}, nil, err
 		}
 		st, err := svc.Stints(ctx, e, a.Session, a.Driver)
 		if err != nil {
-			return nil, StintsResult{}, err
+			return StintsResult{}, nil, err
 		}
-		return nil, StintsResult{Event: e, Session: a.Session, Stints: st}, nil
+		return StintsResult{Event: e, Session: a.Session, Stints: st}, nil, nil
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
+	add(r, &mcp.Tool{
 		Name: "get_race_control",
 		Description: "Get race control messages for a session, from 2023: by default the key events (red flags, safety cars, penalties, " +
 			"investigations, the chequered flag); with all, every message including yellow flags by marshal sector. Filter by category and laps.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a RaceControlArgs) (*mcp.CallToolResult, RaceControlResult, error) {
+	}, func(ctx context.Context, a RaceControlArgs) (RaceControlResult, []Image, error) {
 		e, err := sessionEvent(ctx, svc, &a.SessionArgs)
 		if err != nil {
-			return nil, RaceControlResult{}, err
+			return RaceControlResult{}, nil, err
 		}
 		msgs, err := svc.RaceControl(ctx, e, a.Session, a.Category, a.FromLap, a.ToLap, a.All)
 		if err != nil {
-			return nil, RaceControlResult{}, err
+			return RaceControlResult{}, nil, err
 		}
 		out := RaceControlResult{Event: e, Session: a.Session}
 		out.Messages, out.Page = f1.Paginate(msgs, a.Cursor, a.Limit)
-		return nil, out, nil
+		return out, nil, nil
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
+	add(r, &mcp.Tool{
 		Name: "get_weather",
 		Description: "Get the weather during a session, from 2023: air and track temperature (°C), humidity, wind (m/s) as min, max and average, " +
 			"and whether and when it rained. With detail, the readings (about one a minute).",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a WeatherArgs) (*mcp.CallToolResult, WeatherResult, error) {
+	}, func(ctx context.Context, a WeatherArgs) (WeatherResult, []Image, error) {
 		e, err := sessionEvent(ctx, svc, &a.SessionArgs)
 		if err != nil {
-			return nil, WeatherResult{}, err
+			return WeatherResult{}, nil, err
 		}
 		ws, err := svc.Weather(ctx, e, a.Session)
 		if err != nil {
-			return nil, WeatherResult{}, err
+			return WeatherResult{}, nil, err
 		}
 		sum, err := f1.SummariseWeather(ws)
 		if err != nil {
-			return nil, WeatherResult{}, err
+			return WeatherResult{}, nil, err
 		}
 		out := WeatherResult{Event: e, Session: a.Session, Summary: sum}
 		if a.Detail {
@@ -242,22 +242,22 @@ func registerSession(s *mcp.Server, svc *f1.Service) {
 			out.Readings, p = f1.Paginate(ws, a.Cursor, a.Limit)
 			out.Page = &p
 		}
-		return nil, out, nil
+		return out, nil, nil
 	})
 
-	mcp.AddTool(s, &mcp.Tool{
+	add(r, &mcp.Tool{
 		Name: "get_car_telemetry",
 		Description: "Get car telemetry for one driver's lap, from 2023: top and minimum speed, full throttle and braking share, gear changes, " +
 			"and each braking zone (speed before and at its slowest, duration, and the corner braked for, e.g. 'Turn 1, La Source'). " +
 			"With detail, the readings (about 4 a second: speed, throttle, brake, gear, RPM).",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, a TelemetryArgs) (*mcp.CallToolResult, TelemetryResult, error) {
+	}, func(ctx context.Context, a TelemetryArgs) (TelemetryResult, []Image, error) {
 		e, err := lapSessionEvent(ctx, svc, &a.LapSessionArgs)
 		if err != nil {
-			return nil, TelemetryResult{}, err
+			return TelemetryResult{}, nil, err
 		}
 		lt, err := svc.CarTelemetry(ctx, e, a.Session, a.Driver, a.Lap)
 		if err != nil {
-			return nil, TelemetryResult{}, err
+			return TelemetryResult{}, nil, err
 		}
 		out := TelemetryResult{Event: e, Session: a.Session, LapTelemetry: lt}
 		if a.Detail {
@@ -265,6 +265,6 @@ func registerSession(s *mcp.Server, svc *f1.Service) {
 			out.Readings, p = f1.Paginate(lt.Samples, a.Cursor, a.Limit)
 			out.Page = &p
 		}
-		return nil, out, nil
+		return out, nil, nil
 	})
 }
