@@ -128,7 +128,7 @@ export function Chat() {
           {status === 'submitted' && <div className="animate-pulse text-sm text-muted">Thinking…</div>}
           {error && (
             <div className="rounded-lg border border-accent/50 bg-accent/10 px-3 py-2 text-sm">
-              Something went wrong: {error.message}
+              {error.message || 'Something went wrong. Try again.'}
             </div>
           )}
         </div>
