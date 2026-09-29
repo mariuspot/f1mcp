@@ -79,7 +79,11 @@ func backfillLaps(ctx context.Context, dir string) error {
 // drivers. It makes 5 requests plus 2 per lap.
 func findLaps(ctx context.Context, sessionKey int, driverArgs []string, count int, dir string) error {
 	svc := f1.New(jolpica.NewClient("", nil), openf1.NewClient("", nil))
-	f, err := svc.ReplayLaps(ctx, sessionKey, driverArgs, 0, count)
+	var picks []f1.LapPick
+	for _, d := range driverArgs {
+		picks = append(picks, f1.LapPick{Driver: d})
+	}
+	f, err := svc.ReplayLaps(ctx, sessionKey, 0, picks, count)
 	if err != nil {
 		return err
 	}

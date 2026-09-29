@@ -37,7 +37,7 @@ func toLapTime(sd *sessionData, l openf1.Lap) LapTime {
 
 // BestLaps returns each driver's fastest lap in a session, fastest first.
 func (s *Service) BestLaps(ctx context.Context, e Event, session string) ([]BestLap, error) {
-	sd, err := s.session(ctx, e, session)
+	sd, err := s.lapSession(ctx, e, session)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (s *Service) BestLaps(ctx context.Context, e Event, session string) ([]Best
 // Laps returns laps from a session: every lap of one driver, one lap for
 // every driver, or both filters together. driver may be "" and lap 0.
 func (s *Service) Laps(ctx context.Context, e Event, session, driver string, lap int) ([]LapTime, error) {
-	sd, err := s.session(ctx, e, session)
+	sd, err := s.lapSession(ctx, e, session)
 	if err != nil {
 		return nil, err
 	}

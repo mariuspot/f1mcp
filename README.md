@@ -28,7 +28,7 @@ It combines two public F1 APIs behind one consistent set of tools, so the model 
 
 Each circuit layout is also a resource, `track://{circuit}/{year}`, a PNG map.
 
-Events are chosen by `year` and `round`: a number, `last`, `next`, or part of the event, circuit, city or country name (`"Monaco"`, `"Spa"`); sessions by name (`race`, `qualifying`, `sprint`, `sprint_qualifying`, `fp1`–`fp3`); drivers by code, number or name. Times and gaps are in seconds. Long results are paged with `limit` and `cursor`.
+Events are chosen by `year` and `round`: a number, `last`, `next`, or part of the event, circuit, city or country name (`"Monaco"`, `"Spa"`); sessions by name (`race`, `qualifying`, `sprint`, `sprint_qualifying`, `fp1`–`fp3`), and in the lap tools (`get_laps`, `get_car_telemetry`, `get_lap_animation`) also a part of qualifying (`q1`–`q3`, `sq1`–`sq3`); drivers by code, number or name. `get_lap_animation` picks each driver's lap by number or as `best`, `first`, `last` (the last timed lap that isn't an out-lap) or `last_flying` (the last push lap), for all drivers with `lap` or per driver with `laps: [{driver, lap}]`. Times and gaps are in seconds. Long results are paged with `limit` and `cursor`.
 
 ## What it covers
 

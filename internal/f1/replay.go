@@ -68,11 +68,19 @@ func (s *Service) LapWeatherAt(ctx context.Context, sessionKey int, at time.Time
 	return &LapWeather{AirC: best.AirTemperature, TrackC: best.TrackTemperature, HumidityPct: best.Humidity, WindMS: best.WindSpeed, Rain: best.Rainfall > 0}, nil
 }
 
-// ReplayLaps records laps from a session to animate: for each driver given
-// (by car number, code or name) their lap number lap, or their best lap if
-// lap is 0. With no drivers, the best laps of the fastest count drivers. It
-// makes 6 requests plus 2 per lap.
-func (s *Service) ReplayLaps(ctx context.Context, sessionKey int, drivers []string, lap, count int) (LapReplay, error) {
+// LapPick is a driver, by car number, code or name, and which of their laps
+// to show: a lap number such as "17", or best, first, last or last_flying
+// ("" is best).
+type LapPick struct {
+	Driver string
+	Lap    string
+}
+
+// ReplayLaps records laps from a session to animate: each pick's lap, from
+// the whole session or, if part is 1 to 3, only that part of qualifying.
+// With no picks, the best laps of the fastest count drivers. It makes 6
+// requests (7 for a part of qualifying) plus 2 per lap.
+func (s *Service) ReplayLaps(ctx context.Context, sessionKey, part int, picks []LapPick, count int) (LapReplay, error) {
 	key := strconv.Itoa(sessionKey)
 	sessions, err := s.of1.Sessions(ctx, openf1.SessionsFilter{SessionKey: key})
 	if err != nil || len(sessions) == 0 {
@@ -83,90 +91,102 @@ func (s *Service) ReplayLaps(ctx context.Context, sessionKey int, drivers []stri
 	if err != nil {
 		return LapReplay{}, err
 	}
+	sessionName := sess.SessionName
 	info, err := s.of1.Drivers(ctx, openf1.SessionDriverFilter{SessionKey: key})
 	if err != nil {
 		return LapReplay{}, err
 	}
-	sd := &sessionData{Event: Event{Year: sess.Year, Name: sess.CountryName}, Session: sess.SessionName, drivers: map[int]DriverRef{}}
+	sd := &sessionData{Event: Event{Year: sess.Year, Name: sess.CountryName}, Session: sessionName, key: key, year: sess.Year, drivers: map[int]DriverRef{}}
+	if part > 0 {
+		if sd.partFrom, sd.partTo, err = s.partWindow(ctx, key, sess.Year, part); err != nil {
+			return LapReplay{}, fmt.Errorf("%d %s %s: %w", sess.Year, sess.CountryName, sess.SessionName, err)
+		}
+		sd.part = part
+		sessionName = PartName(sess.SessionName, part)
+		sd.Session = sessionName
+	}
 	byNumber := map[int]openf1.Driver{}
 	for _, d := range info {
 		byNumber[d.DriverNumber] = d
 		sd.drivers[d.DriverNumber] = DriverRef{Code: d.NameAcronym, Number: d.DriverNumber, Name: d.FirstName + " " + d.LastName}
 	}
-	laps, err := s.of1.Laps(ctx, openf1.LapsFilter{SessionKey: key})
+	laps, err := s.laps(ctx, sd)
 	if err != nil {
 		return LapReplay{}, err
 	}
-	// The lap to show for each driver: the numbered one, or their best.
-	chosenLap := map[int]openf1.Lap{}
+	byDriver := map[int][]openf1.Lap{}
 	for _, l := range laps {
-		if l.LapDuration == nil || l.DateStart.IsZero() {
-			continue
-		}
-		if lap > 0 {
-			if l.LapNumber == lap {
-				chosenLap[l.DriverNumber] = l
-			}
-			continue
-		}
-		if l.IsPitOutLap {
-			continue
-		}
-		if b, ok := chosenLap[l.DriverNumber]; !ok || *l.LapDuration < *b.LapDuration {
-			chosenLap[l.DriverNumber] = l
-		}
+		byDriver[l.DriverNumber] = append(byDriver[l.DriverNumber], l)
 	}
-	var chosen []int
-	for _, a := range drivers {
-		n, err := sd.driver(a)
+	where := fmt.Sprintf("%d %s %s", sess.Year, sess.CountryName, sessionName)
+
+	type chosenLap struct {
+		number int
+		lap    openf1.Lap
+		choice string
+	}
+	var chosen []chosenLap
+	for _, p := range picks {
+		n, err := sd.driver(p.Driver)
 		if err != nil {
 			return LapReplay{}, err
 		}
-		chosen = append(chosen, n)
+		l, err := pickLap(byDriver[n], p.Lap)
+		if err != nil {
+			return LapReplay{}, fmt.Errorf("%s in %s: %w", sd.ref(n).Code, where, err)
+		}
+		chosen = append(chosen, chosenLap{n, l, strings.ToLower(p.Lap)})
 	}
 	if len(chosen) == 0 {
-		for n := range chosenLap {
-			chosen = append(chosen, n)
+		for n, ls := range byDriver {
+			if l, err := pickLap(ls, PickBest); err == nil {
+				chosen = append(chosen, chosenLap{n, l, ""})
+			}
 		}
-		slices.SortFunc(chosen, func(a, b int) int {
-			return compareFloat(*chosenLap[a].LapDuration, *chosenLap[b].LapDuration)
-		})
+		slices.SortFunc(chosen, func(a, b chosenLap) int { return compareFloat(*a.lap.LapDuration, *b.lap.LapDuration) })
 		chosen = chosen[:min(max(count, 1), len(chosen))]
 	}
+	if len(chosen) == 0 {
+		return LapReplay{}, fmt.Errorf("no timed laps in %s", where)
+	}
 
-	r := LapReplay{CircuitID: t.CircuitID, Year: sess.Year, SessionKey: sessionKey, Session: sess.CountryName + " · " + sess.SessionName}
+	r := LapReplay{CircuitID: t.CircuitID, Year: sess.Year, SessionKey: sessionKey, Session: sess.CountryName + " · " + sessionName}
 	stints, err := s.of1.Stints(ctx, openf1.SessionDriverFilter{SessionKey: key})
 	if err != nil {
 		return LapReplay{}, err
 	}
 	var names []string
-	for _, n := range chosen {
-		l, ok := chosenLap[n]
-		if !ok {
-			if lap > 0 {
-				return LapReplay{}, fmt.Errorf("%s has no timed lap %d in %d %s %s", sd.ref(n).Code, lap, sess.Year, sess.CountryName, sess.SessionName)
-			}
-			return LapReplay{}, fmt.Errorf("%s has no timed lap in %d %s %s", sd.ref(n).Code, sess.Year, sess.CountryName, sess.SessionName)
-		}
-		trace, err := s.recordTrace(ctx, key, l, byNumber[n])
+	for _, c := range chosen {
+		trace, err := s.recordTrace(ctx, key, c.lap, byNumber[c.number])
 		if err != nil {
 			return LapReplay{}, err
 		}
 		SetTyre(&trace, stints)
 		r.Laps = append(r.Laps, trace)
-		names = append(names, strings.ToLower(trace.Driver))
+		name := strings.ToLower(trace.Driver)
+		switch {
+		case c.choice == "" || c.choice == PickBest:
+		case c.choice == strconv.Itoa(c.lap.LapNumber):
+			name += fmt.Sprintf("-lap-%d", c.lap.LapNumber)
+		default:
+			name += "-" + strings.ReplaceAll(c.choice, "_", "-")
+		}
+		names = append(names, name)
 	}
-	if len(r.Laps) == 0 {
-		return LapReplay{}, fmt.Errorf("no timed laps in %d %s %s", sess.Year, sess.CountryName, sess.SessionName)
-	}
-	r.Name = fmt.Sprintf("%s-%d-%s-%s", t.CircuitID, sess.Year, Slug(sess.SessionName), strings.Join(names, "-vs-"))
-	if lap > 0 {
-		r.Name += fmt.Sprintf("-lap-%d", lap)
-	}
+	r.Name = fmt.Sprintf("%s-%d-%s-%s", t.CircuitID, sess.Year, Slug(sessionName), strings.Join(names, "-vs-"))
 	if w, err := s.LapWeatherAt(ctx, sessionKey, r.Laps[0].Started); err == nil {
 		r.Weather = w
 	}
 	return r, nil
+}
+
+// PartName names a part of a qualifying session, e.g. "Qualifying Q2" or
+// "Sprint Qualifying SQ3".
+func PartName(session string, part int) string {
+	if strings.HasPrefix(session, "Sprint") {
+		return fmt.Sprintf("%s SQ%d", session, part)
+	}
+	return fmt.Sprintf("%s Q%d", session, part)
 }
 
 // SetTyre sets the compound and age of a lap's tyres from the session's

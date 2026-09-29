@@ -27,3 +27,10 @@ type SessionArgs struct {
 	EventArgs
 	Session string `json:"session,omitempty" jsonschema:"race (default), qualifying, sprint, sprint_qualifying, fp1, fp2 or fp3"`
 }
+
+// LapSessionArgs is SessionArgs for the lap tools, which also take a part
+// of qualifying.
+type LapSessionArgs struct {
+	EventArgs
+	Session string `json:"session,omitempty" jsonschema:"race (default), qualifying, sprint, sprint_qualifying, fp1, fp2, fp3, or a part of qualifying: q1, q2, q3, or sq1, sq2, sq3 for sprint qualifying"`
+}

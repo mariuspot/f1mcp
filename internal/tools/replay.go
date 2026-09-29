@@ -38,11 +38,18 @@ type IncidentResult struct {
 }
 
 type LapAnimationArgs struct {
-	SessionArgs
+	LapSessionArgs
 	Drivers []string `json:"drivers,omitempty" jsonschema:"up to 4 drivers (code, car number or name), compared lap against lap; default: the fastest driver, or the fastest two for format faster"`
-	Lap     int      `json:"lap,omitempty" jsonschema:"this lap number for each driver (default: each driver's best lap)"`
-	Format  string   `json:"format,omitempty" jsonschema:"png (default): a still of the end of the lap; gif: an animation of the whole lap at 3x speed (larger, a few MB); faster: a map of who was faster through each corner and straight, with the gap all round the lap (2 to 4 drivers)"`
-	Braking bool     `json:"braking,omitempty" jsonschema:"also mark where each car braked (speed before and at the slowest) and changed gear"`
+	Lap     string   `json:"lap,omitempty" jsonschema:"which lap of each driver: a lap number such as '17', or best (default), first, last (the last timed lap that isn't an out-lap) or last_flying (the last push lap, not an in-lap or cool-down lap)"`
+	// Laps gives each driver their own lap.
+	Laps    []LapChoice `json:"laps,omitempty" jsonschema:"instead of drivers and lap: up to 4 drivers, each with their own lap, e.g. [{driver: VER, lap: last}, {driver: NOR, lap: '16'}]"`
+	Format  string      `json:"format,omitempty" jsonschema:"png (default): a still of the end of the lap; gif: an animation of the whole lap at 3x speed (larger, a few MB); faster: a map of who was faster through each corner and straight, with the gap all round the lap (2 to 4 drivers)"`
+	Braking bool        `json:"braking,omitempty" jsonschema:"also mark where each car braked (speed before and at the slowest) and changed gear"`
+}
+
+type LapChoice struct {
+	Driver string `json:"driver" jsonschema:"driver code (VER), car number or name"`
+	Lap    string `json:"lap,omitempty" jsonschema:"a lap number such as '17', or best (default), first, last or last_flying"`
 }
 
 type LapSummary struct {
@@ -145,12 +152,29 @@ func registerReplay(s *mcp.Server, svc *f1.Service) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "get_lap_animation",
 		Description: "Replay laps on the track map, from 2023: one driver's lap, or several drivers' laps compared as if they started together, " +
+			"from a session or a part of qualifying (q1, q2, q3); each lap by number, or best, first, last or last_flying, per driver with laps. " +
 			"with speed, gear, throttle, brake, tyre and the gap at each point. A PNG still of the end of the lap by default, or an animated GIF. " +
 			"With format faster, a map of which driver was faster through each corner and straight, with the gap all round the lap, and those " +
 			"times. Also returns each lap's time, gap, tyre compound and age, top speed, and the weather.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, a LapAnimationArgs) (*mcp.CallToolResult, LapAnimationResult, error) {
-		if len(a.Drivers) > 4 {
-			return nil, LapAnimationResult{}, fmt.Errorf("at most 4 drivers, not %d", len(a.Drivers))
+		var picks []f1.LapPick
+		switch {
+		case len(a.Laps) > 0 && len(a.Drivers) > 0:
+			return nil, LapAnimationResult{}, fmt.Errorf("give drivers (with lap) or laps, not both")
+		case len(a.Laps) > 0:
+			for _, l := range a.Laps {
+				picks = append(picks, f1.LapPick{Driver: l.Driver, Lap: l.Lap})
+			}
+		default:
+			for _, d := range a.Drivers {
+				picks = append(picks, f1.LapPick{Driver: d, Lap: a.Lap})
+			}
+			if len(picks) == 0 && a.Lap != "" && !strings.EqualFold(a.Lap, f1.PickBest) {
+				return nil, LapAnimationResult{}, fmt.Errorf("lap %q needs drivers", a.Lap)
+			}
+		}
+		if len(picks) > 4 {
+			return nil, LapAnimationResult{}, fmt.Errorf("at most 4 drivers, not %d", len(picks))
 		}
 		format := strings.ToLower(a.Format)
 		if format != "" && format != "png" && format != "gif" && format != "faster" {
@@ -158,20 +182,24 @@ func registerReplay(s *mcp.Server, svc *f1.Service) {
 		}
 		count := 1
 		if format == "faster" {
-			if len(a.Drivers) == 1 {
-				return nil, LapAnimationResult{}, fmt.Errorf("format faster compares 2 to 4 drivers")
+			if len(picks) == 1 {
+				return nil, LapAnimationResult{}, fmt.Errorf("format faster compares 2 to 4 laps")
 			}
 			count = 2
 		}
-		e, err := sessionEvent(ctx, svc, &a.SessionArgs)
+		e, err := lapSessionEvent(ctx, svc, &a.LapSessionArgs)
 		if err != nil {
 			return nil, LapAnimationResult{}, err
 		}
-		key, err := svc.SessionKey(ctx, e, a.Session)
+		if err := f1.ValidLapSession(a.Session); err != nil {
+			return nil, LapAnimationResult{}, err
+		}
+		base, part := f1.SplitSession(a.Session)
+		key, err := svc.SessionKey(ctx, e, base)
 		if err != nil {
 			return nil, LapAnimationResult{}, err
 		}
-		r, err := svc.ReplayLaps(ctx, key, a.Drivers, a.Lap, count)
+		r, err := svc.ReplayLaps(ctx, key, part, picks, count)
 		if err != nil {
 			return nil, LapAnimationResult{}, err
 		}
