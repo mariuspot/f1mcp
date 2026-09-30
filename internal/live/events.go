@@ -123,7 +123,7 @@ func (s *State) lapDone(c *Car, lt *LapTime) {
 			pitted = true
 		}
 	}
-	rec := lapRecord{lap: lt.Lap, seconds: lt.Seconds, racing: !lt.PitOut && !pitted && (s.flag == Green || s.flag == Yellow), compound: c.Compound, age: c.TyreAge}
+	rec := lapRecord{lap: lt.Lap, seconds: lt.Seconds, racing: !lt.PitOut && !pitted && !lt.Neutral, compound: c.Compound, age: c.TyreAge}
 	if c.Interval != nil {
 		v := *c.Interval
 		rec.interval = &v
@@ -185,8 +185,9 @@ func recentPace(laps []lapRecord, n int) float64 {
 		return 0
 	}
 	sum := 0.0
-	for _, l := range laps[len(laps)-n:] {
-		if !l.racing {
+	last := laps[len(laps)-n:]
+	for i, l := range last {
+		if !l.racing || (i > 0 && l.lap != last[i-1].lap+1) {
 			return 0
 		}
 		sum += l.seconds
@@ -232,10 +233,10 @@ func (s *State) pitEvent(c *Car, compound string, age int) {
 	now := tyreText(compound, age)
 	if s.flag == Red {
 		c.RedFlagChanges++
-		s.emit(KindPit, 2, []string{c.Code}, "%s changes tyres under the red flag: %s for %s", c.Code, was, now)
+		s.emit(KindPit, 2, []string{c.Code}, "%s changes tyres under the red flag, from %s to %s", c.Code, was, now)
 		return
 	}
-	text := fmt.Sprintf("%s pits from P%d: %s for %s", c.Code, c.Position, was, now)
+	text := fmt.Sprintf("%s pits from P%d%s, from %s to %s", c.Code, c.Position, s.pitFlagText(), was, now)
 	if n := len(c.Stops); n > 0 && c.Stops[n-1].StopSeconds != nil {
 		text += fmt.Sprintf(", %.1f s stationary", *c.Stops[n-1].StopSeconds)
 	}
@@ -316,4 +317,29 @@ func (s *State) Recent(n int) []Message {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return append([]Message(nil), s.messages[:min(n, len(s.messages))]...)
+}
+
+// pitFlagText says whether a stop was made with the field neutralised:
+// " under the VSC", or " as the VSC ended" for a car that went in during
+// it (new tyres show up as the car leaves the pit lane).
+func (s *State) pitFlagText() string {
+	if neutral(s.flag) {
+		return " under the " + flagName(s.flag)
+	}
+	if !s.neutralUntil.IsZero() && s.now.Sub(s.neutralUntil) < 45*time.Second && s.lastNeutral != "" {
+		return " as the " + flagName(s.lastNeutral) + " ended"
+	}
+	return ""
+}
+
+func flagName(f Flag) string {
+	switch f {
+	case SC:
+		return "safety car"
+	case VSC:
+		return "VSC"
+	case Red:
+		return "red flag"
+	}
+	return string(f)
 }

@@ -22,8 +22,15 @@ import (
 const (
 	minWall    = 8 * time.Second
 	minSession = 30 * time.Second
-	maxTokens  = 300
-	skip       = "SKIP"
+	// settle is how long, in session time, to wait after an event before
+	// commenting, so related events (the rest of a round of stops) arrive
+	// with it.
+	settle = 15 * time.Second
+	// effort is how much Claude thinks before answering, to check its
+	// claims against the data; maxTokens covers the thinking and answer.
+	effort    = "medium"
+	maxTokens = 4000
+	skip      = "SKIP"
 )
 
 // Commentator writes insights for sessions, keeping them in dir so a
@@ -60,6 +67,25 @@ func (c *Commentator) Start(ctx context.Context, state *live.State, key string) 
 	r := &Run{c: c, state: state, key: key}
 	go r.loop(ctx)
 	return r
+}
+
+// Manual returns a run that only comments when asked, with Comment, for
+// evaluating the commentary.
+func (c *Commentator) Manual(state *live.State, key string) *Run {
+	return &Run{c: c, state: state, key: key}
+}
+
+// Comment comments on events now, returning the insight's text, or "" if
+// Claude had nothing to add.
+func (r *Run) Comment(ctx context.Context, events []live.Event) (string, error) {
+	before := len(r.state.InsightsSince(0))
+	if err := r.comment(ctx, events); err != nil {
+		return "", err
+	}
+	if in := r.state.InsightsSince(0); len(in) > before {
+		return in[len(in)-1].Text, nil
+	}
+	return "", nil
 }
 
 // Add queues events to comment on. Only notable ones are kept.
@@ -99,9 +125,27 @@ func (r *Run) due() []live.Event {
 	if len(r.pending) == 0 || time.Since(r.lastWall) < minWall {
 		return nil
 	}
+	return r.takeLocked()
+}
+
+// DueBySessionTime is due without the real-time limit, for evaluating the
+// commentary on a replay played as fast as possible.
+func (r *Run) DueBySessionTime() []live.Event {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.pending) == 0 {
+		return nil
+	}
+	return r.takeLocked()
+}
+
+func (r *Run) takeLocked() []live.Event {
 	major := slices.ContainsFunc(r.pending, func(e live.Event) bool { return e.Priority >= 3 })
 	now := r.pending[len(r.pending)-1].Time
-	if !major && now.Sub(r.lastSession) < minSession {
+	if r.state != nil && r.state.Now().After(now) {
+		now = r.state.Now()
+	}
+	if now.Sub(r.pending[0].Time) < settle || (!major && now.Sub(r.lastSession) < minSession) {
 		return nil
 	}
 	batch := r.pending
@@ -124,10 +168,10 @@ func (r *Run) comment(ctx context.Context, events []live.Event) error {
 	}
 	text, err := r.cached(events)
 	if err != nil {
-		prompt := Prompt(snap, events, r.state.Recent(5), r.recentlySaid())
+		prompt := Prompt(snap, events, r.state.Recent(20), r.recentlySaid())
 		cctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 		defer cancel()
-		text, err = r.c.claude.Complete(cctx, System, prompt, maxTokens)
+		text, err = r.c.claude.Complete(cctx, System, prompt, maxTokens, effort)
 		if err != nil {
 			return err
 		}
