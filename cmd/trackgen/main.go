@@ -6,6 +6,7 @@
 //	go run ./cmd/trackgen lap -session 11373 -count 2  # store the two fastest laps of a session
 //	go run ./cmd/trackgen render  # write map and corner images into assets/tracks
 //	go run ./cmd/trackgen collect -session 9636  # save everything OpenF1 has about a session, for replays
+//	go run ./cmd/trackgen replay -dir replays/2024-brazil-race -at 16:40,17:30  # the live state at moments of a replay
 //
 // Layouts come from MultiViewer's circuit API, keyed by OpenF1's circuit_key,
 // and are stored in internal/tracks/data/circuits. Only missing ones are
@@ -65,6 +66,18 @@ func main() {
 			usage()
 		}
 		if err := collect(ctx, *session, *dir); err != nil {
+			log.Fatal(err)
+		}
+	case "replay":
+		fs := flag.NewFlagSet("replay", flag.ExitOnError)
+		dir := fs.String("dir", "", "a collected session, e.g. replays/2024-brazil-race")
+		at := fs.String("at", "", "comma-separated times of day (UTC) to print the timing tower at, e.g. 16:40,17:30")
+		cars := fs.Bool("cars", false, "also play car data and location (slower)")
+		fs.Parse(args)
+		if *dir == "" || *at == "" {
+			usage()
+		}
+		if err := replayAt(ctx, *dir, strings.Split(*at, ","), *cars); err != nil {
 			log.Fatal(err)
 		}
 	case "incident":
