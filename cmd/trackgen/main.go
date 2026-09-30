@@ -73,11 +73,16 @@ func main() {
 		dir := fs.String("dir", "", "a collected session, e.g. replays/2024-brazil-race")
 		at := fs.String("at", "", "comma-separated times of day (UTC) to print the timing tower at, e.g. 16:40,17:30")
 		cars := fs.Bool("cars", false, "also play car data and location (slower)")
+		events := fs.Int("events", 0, "print the events of at least this priority (1-3) as they happen")
 		fs.Parse(args)
-		if *dir == "" || *at == "" {
+		if *dir == "" || (*at == "" && *events == 0) {
 			usage()
 		}
-		if err := replayAt(ctx, *dir, strings.Split(*at, ","), *cars); err != nil {
+		var marks []string
+		if *at != "" {
+			marks = strings.Split(*at, ",")
+		}
+		if err := replayAt(ctx, *dir, marks, *cars, *events); err != nil {
 			log.Fatal(err)
 		}
 	case "incident":

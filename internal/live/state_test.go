@@ -74,7 +74,12 @@ func TestFlags(t *testing.T) {
 		{m{"flag": "CLEAR", "scope": "Sector", "sector": 4, "message": "CLEAR IN TRACK SECTOR 4"}, Green},
 		{m{"category": "SafetyCar", "message": "VIRTUAL SAFETY CAR DEPLOYED"}, VSC},
 		{m{"category": "SafetyCar", "message": "VIRTUAL SAFETY CAR ENDING"}, VSC},
-		{m{"flag": "GREEN", "scope": "Track", "message": "TRACK CLEAR"}, Green},
+		{m{"flag": "CLEAR", "scope": "Track", "message": "TRACK CLEAR"}, Green},
+		{m{"category": "SafetyCar", "message": "SAFETY CAR DEPLOYED"}, SC},
+		{m{"category": "SafetyCar", "message": "SAFETY CAR IN THIS LAP"}, SC},
+		{m{"flag": "GREEN", "scope": "Track", "message": "GREEN LIGHT - PIT EXIT OPEN"}, Green},
+		{m{"flag": "RED", "scope": "Track", "message": "RED FLAG"}, Red},
+		{m{"category": "SessionStatus", "message": "SESSION STARTED"}, Green},
 		{m{"flag": "RED", "scope": "Track", "message": "RED FLAG"}, Red},
 		{m{"flag": "CHEQUERED", "scope": "Track", "message": "CHEQUERED FLAG"}, Ended},
 	}
