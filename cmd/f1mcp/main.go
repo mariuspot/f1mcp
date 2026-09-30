@@ -12,11 +12,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/mariuspot/f1mcp/internal/api"
+	"github.com/mariuspot/f1mcp/internal/insight"
 	"github.com/mariuspot/f1mcp/internal/replay"
 	"github.com/mariuspot/f1mcp/internal/server"
 )
@@ -43,7 +45,13 @@ func main() {
 		mux.Handle("/api/", web)
 		mux.Handle("/img/", web)
 		// The live page, playing sessions collected into F1MCP_REPLAYS_DIR.
-		liveAPI := api.LiveHandler(replay.NewPlayer(os.Getenv("F1MCP_REPLAYS_DIR")))
+		player := replay.NewPlayer(os.Getenv("F1MCP_REPLAYS_DIR"))
+		// With ANTHROPIC_API_KEY set, Claude comments on what's happening.
+		claude := insight.NewClaude(os.Getenv("ANTHROPIC_API_KEY"), os.Getenv("F1MCP_INSIGHT_MODEL"), nil)
+		if c := insight.NewCommentator(claude, insightDir()); c != nil {
+			player.WithCommentator(c)
+		}
+		liveAPI := api.LiveHandler(player)
 		mux.Handle("/api/live", liveAPI)
 		mux.Handle("/api/live/", liveAPI)
 		mux.Handle("/", mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, nil))
@@ -59,6 +67,15 @@ func main() {
 	default:
 		log.Fatalf("unknown transport %q (want stdio or http)", *transport)
 	}
+}
+
+// insightDir is where insights are kept, so replays played again cost
+// nothing: F1MCP_CACHE_DIR/insights, if that's set.
+func insightDir() string {
+	if dir := os.Getenv("F1MCP_CACHE_DIR"); dir != "" {
+		return filepath.Join(dir, "insights")
+	}
+	return ""
 }
 
 func envOr(key, fallback string) string {

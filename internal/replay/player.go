@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mariuspot/f1mcp/internal/insight"
 	"github.com/mariuspot/f1mcp/internal/live"
 )
 
@@ -18,6 +19,8 @@ import (
 // session.
 type Player struct {
 	root string // where collected sessions are, one folder each
+	// commentator, if set, writes insights on each replay.
+	commentator *insight.Commentator
 
 	mu     sync.Mutex
 	state  *live.State
@@ -51,6 +54,12 @@ type Race struct {
 // NewPlayer returns a player for the sessions collected under root.
 func NewPlayer(root string) *Player {
 	return &Player{root: root, state: live.NewState()}
+}
+
+// WithCommentator has the player write insights on its replays.
+func (p *Player) WithCommentator(c *insight.Commentator) *Player {
+	p.commentator = c
+	return p
 }
 
 // Races lists the collected sessions.
@@ -139,6 +148,10 @@ func (p *Player) Start(race string, speed float64, fromLap int) error {
 	p.started, p.fromTime = time.Time{}, from
 	p.mu.Unlock()
 
+	var run *insight.Run
+	if p.commentator != nil {
+		run = p.commentator.Start(ctx, state, "replay-"+filepath.Base(race))
+	}
 	go func() {
 		defer src.Close()
 		caughtUp := false
@@ -149,7 +162,12 @@ func (p *Player) Start(race string, speed float64, fromLap int) error {
 				p.started = time.Now()
 				p.mu.Unlock()
 			}
-			state.Apply(r)
+			events := state.Step(r)
+			// Comment only on what happens once the replay is paced, not
+			// on catching up to its starting lap.
+			if caughtUp && run != nil && len(events) > 0 {
+				run.Add(events)
+			}
 		})
 		p.mu.Lock()
 		defer p.mu.Unlock()

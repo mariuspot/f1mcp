@@ -17,6 +17,8 @@ The Live page (`/live`) follows a session as it happens: a timing tower (positio
 - fastest laps, overtakes, a car closing in lap after lap, a clear pace difference on different tyres;
 - rain starting or stopping, and radio.
 
+With `ANTHROPIC_API_KEY` set on the Go service, Claude (Sonnet 5 by default, or `F1MCP_INSIGHT_MODEL`) adds insight as things happen: why a car probably pitted, what a safety car or undercut means, who is quicker on which tyres. It comments on notable events at most every 8 s of real time, and otherwise every 30 s of race time or straight away for a flag, lead change or penalty. Insights are cached by race and moment in `F1MCP_CACHE_DIR`, so a replay played again costs nothing.
+
 Until OpenF1 live access is set up, it plays replays of sessions collected with `go run ./cmd/trackgen collect -session <key>` into `replays/`, at 1× to 60× from any lap. Everyone watching sees the same replay.
 
 ## Running it

@@ -12,9 +12,10 @@ import (
 // LiveResponse is the live page's view: what's playing, the state of the
 // session, and events since the ones the page has.
 type LiveResponse struct {
-	Status   replay.Status `json:"status"`
-	Snapshot live.Snapshot `json:"snapshot"`
-	Events   []live.Event  `json:"events"`
+	Status   replay.Status  `json:"status"`
+	Snapshot live.Snapshot  `json:"snapshot"`
+	Events   []live.Event   `json:"events"`
+	Insights []live.Insight `json:"insights"`
 }
 
 type replayRequest struct {
@@ -26,7 +27,7 @@ type replayRequest struct {
 
 // LiveHandler serves the live page's API from a replay player:
 //
-//	GET  /api/live?since=<event id>  status, snapshot and new events
+//	GET  /api/live?since=<event id>&isince=<insight id>  status, snapshot, new events and insights
 //	GET  /api/live/races             the sessions that can be replayed
 //	POST /api/live/replay            {race, speed, from_lap} or {stop: true}
 func LiveHandler(p *replay.Player) http.Handler {
@@ -38,7 +39,12 @@ func LiveHandler(p *replay.Player) http.Handler {
 		if events == nil {
 			events = []live.Event{}
 		}
-		writeJSON(w, http.StatusOK, LiveResponse{Status: p.Status(), Snapshot: st.Snapshot(), Events: events})
+		isince, _ := strconv.Atoi(r.URL.Query().Get("isince"))
+		insights := st.InsightsSince(isince)
+		if insights == nil {
+			insights = []live.Insight{}
+		}
+		writeJSON(w, http.StatusOK, LiveResponse{Status: p.Status(), Snapshot: st.Snapshot(), Events: events, Insights: insights})
 	})
 	mux.HandleFunc("GET /api/live/races", func(w http.ResponseWriter, r *http.Request) {
 		races, err := p.Races()

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Car, Flag, LiveEvent, LiveResponse, Race, Snapshot, Status } from '@/lib/live';
+import type { Car, Flag, Insight, LiveEvent, LiveResponse, Race, Snapshot, Status } from '@/lib/live';
 import { lapTime, tyreColors } from './cards';
 
 const speeds = [1, 5, 20, 60];
@@ -21,12 +21,13 @@ const flagStyle: Record<Flag, { label: string; className: string }> = {
 export function LiveView() {
   const [data, setData] = useState<LiveResponse | null>(null);
   const [events, setEvents] = useState<LiveEvent[]>([]);
+  const [insights, setInsights] = useState<Insight[]>([]);
   const [races, setRaces] = useState<Race[]>([]);
   const [race, setRace] = useState('');
   const [speed, setSpeed] = useState(20);
   const [fromLap, setFromLap] = useState(1);
   const [error, setError] = useState('');
-  const last = useRef({ run: -1, id: 0 });
+  const last = useRef({ run: -1, id: 0, insight: 0 });
 
   useEffect(() => {
     fetch('/api/live/races')
@@ -40,15 +41,16 @@ export function LiveView() {
 
   const poll = useCallback(async (signal: AbortSignal) => {
     const since = last.current.id;
-    const resp = await fetch(`/api/live?since=${since}`, { cache: 'no-store', signal });
+    const resp = await fetch(`/api/live?since=${since}&isince=${last.current.insight}`, { cache: 'no-store', signal });
     if (!resp.ok) throw new Error(await resp.text());
     const d: LiveResponse = await resp.json();
     if (signal.aborted || d.status.run < last.current.run) return; // stale
     if (d.status.run !== last.current.run) {
       // A new replay: its events are numbered from 1 again, so start over
       // from the first on the next poll.
-      last.current = { run: d.status.run, id: 0 };
+      last.current = { run: d.status.run, id: 0, insight: 0 };
       setEvents([]);
+      setInsights([]);
       setData(d);
       if (since !== 0) return;
     }
@@ -57,6 +59,12 @@ export function LiveView() {
       last.current.id = fresh[fresh.length - 1].id;
       const newestFirst = fresh.slice().reverse();
       setEvents(prev => [...newestFirst, ...prev].slice(0, 400));
+    }
+    const newInsights = d.insights.filter(i => i.id > last.current.insight);
+    if (newInsights.length) {
+      last.current.insight = newInsights[newInsights.length - 1].id;
+      const newestFirst = newInsights.slice().reverse();
+      setInsights(prev => [...newestFirst, ...prev].slice(0, 200));
     }
     setData(d);
   }, []);
@@ -128,7 +136,7 @@ export function LiveView() {
             <SessionBar snap={snap} status={status} />
             <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
               <Tower cars={snap.cars} best={snap.best_lap} />
-              <Feed events={events} />
+              <Feed events={events} insights={insights} />
             </div>
           </>
         ) : (
@@ -285,9 +293,14 @@ const kindStyle: Record<string, string> = {
   radio: 'border-l-muted',
 };
 
-function Feed({ events }: { events: LiveEvent[] }) {
+type FeedItem = { key: string; time: string; lap?: number } & ({ insight: Insight } | { event: LiveEvent });
+
+function Feed({ events, insights }: { events: LiveEvent[]; insights: Insight[] }) {
   const [all, setAll] = useState(false);
-  const shown = events.filter(e => all || e.priority >= 2);
+  const items: FeedItem[] = [
+    ...insights.map(i => ({ key: `i${i.id}`, time: i.time, lap: i.lap, insight: i })),
+    ...events.filter(e => all || e.priority >= 2).map(e => ({ key: `e${e.id}`, time: e.time, lap: e.lap, event: e })),
+  ].sort((a, b) => (a.time < b.time ? 1 : a.time > b.time ? -1 : 'insight' in a ? -1 : 1));
   return (
     <section className="flex max-h-[calc(100dvh-14rem)] flex-col overflow-hidden rounded-xl border border-line bg-panel">
       <header className="flex items-center border-b border-line px-4 py-2.5">
@@ -298,13 +311,26 @@ function Feed({ events }: { events: LiveEvent[] }) {
         </label>
       </header>
       <ul className="flex-1 space-y-1.5 overflow-auto p-3">
-        {shown.length === 0 && <li className="px-1 text-sm text-muted">Nothing yet.</li>}
-        {shown.map(e => (
-          <li key={e.id} className={`rounded-md border-l-2 bg-bg/60 px-3 py-1.5 text-sm ${kindStyle[e.kind] ?? 'border-l-line'} ${e.priority >= 3 ? 'font-medium' : ''}`}>
-            <span className="mr-2 text-xs tabular-nums text-muted">{e.lap ? `L${e.lap}` : new Date(e.time).toISOString().slice(11, 16)}</span>
-            {e.text}
-          </li>
-        ))}
+        {items.length === 0 && <li className="px-1 text-sm text-muted">Nothing yet.</li>}
+        {items.map(item =>
+          'insight' in item ? (
+            <li key={item.key} className="rounded-lg border border-accent/35 bg-accent/10 px-3 py-2 text-sm">
+              <div className="mb-0.5 flex items-center gap-2 text-xs">
+                <span className="font-semibold uppercase tracking-wide text-accent">Pit wall</span>
+                <span className="tabular-nums text-muted">{item.lap ? `Lap ${item.lap}` : ''}</span>
+              </div>
+              <p className="leading-relaxed">{item.insight.text}</p>
+            </li>
+          ) : (
+            <li
+              key={item.key}
+              className={`rounded-md border-l-2 bg-bg/60 px-3 py-1.5 text-sm ${kindStyle[item.event.kind] ?? 'border-l-line'} ${item.event.priority >= 3 ? 'font-medium' : ''}`}
+            >
+              <span className="mr-2 text-xs tabular-nums text-muted">{item.lap ? `L${item.lap}` : new Date(item.time).toISOString().slice(11, 16)}</span>
+              {item.event.text}
+            </li>
+          ),
+        )}
       </ul>
     </section>
   );
