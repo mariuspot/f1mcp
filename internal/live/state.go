@@ -556,7 +556,9 @@ var carInMessage = regexp.MustCompile(`\bCAR (\d+) \(`)
 func (s *State) Snapshot() Snapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	snap := Snapshot{Time: s.now, Session: s.session, Lap: s.leaderLap, TotalLaps: s.totalLaps, Flag: s.flag, Weather: s.weather, BestLap: s.best}
+	// Cars is always a list, even before anything is known, so clients
+	// can rely on it.
+	snap := Snapshot{Time: s.now, Session: s.session, Lap: s.leaderLap, TotalLaps: s.totalLaps, Flag: s.flag, Weather: s.weather, BestLap: s.best, Cars: []Car{}}
 	for _, c := range s.cars {
 		cc := *c
 		if p := recentPace(c.laps, 3); p > 0 {

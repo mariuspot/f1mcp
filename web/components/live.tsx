@@ -54,13 +54,13 @@ export function LiveView() {
       setData(d);
       if (since !== 0) return;
     }
-    const fresh = d.events.filter(e => e.id > last.current.id);
+    const fresh = (d.events ?? []).filter(e => e.id > last.current.id);
     if (fresh.length) {
       last.current.id = fresh[fresh.length - 1].id;
       const newestFirst = fresh.slice().reverse();
       setEvents(prev => [...newestFirst, ...prev].slice(0, 400));
     }
-    const newInsights = d.insights.filter(i => i.id > last.current.insight);
+    const newInsights = (d.insights ?? []).filter(i => i.id > last.current.insight);
     if (newInsights.length) {
       last.current.insight = newInsights[newInsights.length - 1].id;
       const newestFirst = newInsights.slice().reverse();
@@ -131,7 +131,7 @@ export function LiveView() {
         />
         {error && <p className="mt-3 rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm">{error}</p>}
 
-        {snap && snap.cars.length > 0 ? (
+        {snap?.cars?.length ? (
           <>
             <SessionBar snap={snap} status={status} />
             <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
