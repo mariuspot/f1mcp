@@ -165,6 +165,28 @@ func (c *Client) Locations(ctx context.Context, f WindowFilter) ([]Location, err
 	return get[Location](ctx, c, "/location", f.query())
 }
 
+// RawFilter picks what Raw fetches: a session, and optionally a meeting
+// instead, one car and a time window. Zero values don't filter.
+type RawFilter struct {
+	SessionKey   int
+	MeetingKey   int
+	DriverNumber int
+	After        time.Time
+	Before       time.Time
+}
+
+// Raw fetches an endpoint, e.g. "/car_data", and returns each record as
+// OpenF1 sent it, with every field.
+func (c *Client) Raw(ctx context.Context, path string, f RawFilter) ([]json.RawMessage, error) {
+	var q query
+	q.int("session_key", f.SessionKey)
+	q.int("meeting_key", f.MeetingKey)
+	q.int("driver_number", f.DriverNumber)
+	q.date(">", f.After)
+	q.date("<", f.Before)
+	return get[json.RawMessage](ctx, c, path, q)
+}
+
 func (f SessionDriverFilter) query() query {
 	var q query
 	q.str("session_key", f.SessionKey)
