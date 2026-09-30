@@ -9,6 +9,16 @@ A Formula 1 chat app: ask about races, drivers and laps, and get answers with ta
 - The model sees the data. The page draws each answer as a card (`components/cards.tsx`), with images proxied through `/img/{id}`.
 - With the model set to Auto, `lib/agent.ts` sends each question through a quick Claude Haiku check: lookups go to Sonnet 5, analysis to Opus 5.5. The model picker can choose one instead.
 
+## Live
+
+The Live page (`/live`) follows a session as it happens: a timing tower (positions, gaps, last laps with personal and overall bests, tyres and stops, penalties) and a feed of what's happening:
+- flags and restarts, lead changes, penalties;
+- pit stops with the tyres before and after, including changes under a red flag;
+- fastest laps, overtakes, a car closing in lap after lap, a clear pace difference on different tyres;
+- rain starting or stopping, and radio.
+
+Until OpenF1 live access is set up, it plays replays of sessions collected with `go run ./cmd/trackgen collect -session <key>` into `replays/`, at 1× to 60× from any lap. Everyone watching sees the same replay.
+
 ## Running it
 
 Start the Go service over HTTP from the repository root:

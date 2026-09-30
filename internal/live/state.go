@@ -2,7 +2,9 @@ package live
 
 import (
 	"encoding/json"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -48,6 +50,7 @@ type Car struct {
 	Penalty  []string  `json:"penalties,omitempty"`
 
 	stintStart, stintAge int
+	laps                 []lapRecord
 }
 
 // LapTime is a completed lap.
@@ -142,11 +145,19 @@ type State struct {
 	radio     []Radio
 	leaderLap int
 	totalLaps int
+
+	events   []Event
+	pending  []Event // events from the record being applied
+	nextID   int
+	leader   int            // car number
+	reported map[string]int // lap each closing/pace pair was last reported
+	rain     rainWatch
+	started  bool // a car has completed a lap
 }
 
 // NewState returns an empty state.
 func NewState() *State {
-	return &State{cars: map[int]*Car{}, flag: Green, yellows: map[int]bool{}}
+	return &State{cars: map[int]*Car{}, flag: Green, yellows: map[int]bool{}, reported: map[string]int{}}
 }
 
 func (s *State) car(n int) *Car {
@@ -167,9 +178,18 @@ func (s *State) code(n int) string {
 
 // Apply updates the state with a record. Records it doesn't understand are
 // ignored.
-func (s *State) Apply(r Record) {
+func (s *State) Apply(r Record) { s.Step(r) }
+
+// Step is Apply, returning the events the record gave rise to.
+func (s *State) Step(r Record) []Event {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.pending = nil
+	s.apply(r)
+	return s.pending
+}
+
+func (s *State) apply(r Record) {
 	if r.Time.After(s.now) {
 		s.now = r.Time
 	}
@@ -206,6 +226,12 @@ func (s *State) Apply(r Record) {
 		}
 		if json.Unmarshal(r.Data, &v) == nil {
 			s.car(v.Number).Position = v.Position
+			if v.Position == 1 && v.Number != s.leader {
+				if s.leader != 0 {
+					s.emit(KindLead, 3, []string{s.code(v.Number), s.code(s.leader)}, "%s takes the lead from %s", s.code(v.Number), s.code(s.leader))
+				}
+				s.leader = v.Number
+			}
 		}
 	case "intervals":
 		var v struct {
@@ -230,6 +256,9 @@ func (s *State) Apply(r Record) {
 		}
 		if json.Unmarshal(r.Data, &v) == nil {
 			c := s.car(v.Number)
+			if v.Stint > c.Stint && c.Stint > 0 {
+				s.pitEvent(c, v.Compound, v.AgeStart)
+			}
 			if v.Stint >= c.Stint {
 				c.Stint, c.Compound, c.stintStart, c.stintAge = v.Stint, v.Compound, v.LapStart, v.AgeStart
 				c.TyreAge = v.AgeStart + max(0, c.Lap+1-v.LapStart)
@@ -248,6 +277,13 @@ func (s *State) Apply(r Record) {
 		if json.Unmarshal(r.Data, &v) == nil {
 			c := s.car(v.Number)
 			c.Stops = append(c.Stops, PitStop{Lap: v.Lap, LaneSeconds: v.Lane, StopSeconds: v.Stop})
+			// The in-lap may already be recorded; it wasn't a racing lap.
+			// OpenF1 may number the stop by the in-lap or the out-lap.
+			for i := range c.laps {
+				if c.laps[i].lap >= v.Lap-1 {
+					c.laps[i].racing = false
+				}
+			}
 		}
 	case "race_control":
 		s.applyMessage(r)
@@ -261,6 +297,7 @@ func (s *State) Apply(r Record) {
 		}
 		if json.Unmarshal(r.Data, &v) == nil {
 			s.weather = &Weather{AirC: v.Air, TrackC: v.Track, Humidity: v.Humidity, WindMS: v.Wind, Rain: v.Rain > 0}
+			s.rainChange(v.Rain > 0, v.Track)
 		}
 	case "overtakes":
 		var v struct {
@@ -270,6 +307,11 @@ func (s *State) Apply(r Record) {
 		}
 		if json.Unmarshal(r.Data, &v) == nil {
 			s.overtakes = prepend(s.overtakes, Overtake{Time: r.Time, By: s.code(v.By), Of: s.code(v.Of), Position: v.Position})
+			priority := 1
+			if v.Position <= 10 {
+				priority = 2
+			}
+			s.emit(KindOvertake, priority, []string{s.code(v.By), s.code(v.Of)}, "%s passes %s for P%d", s.code(v.By), s.code(v.Of), v.Position)
 		}
 	case "team_radio":
 		var v struct {
@@ -278,6 +320,7 @@ func (s *State) Apply(r Record) {
 		}
 		if json.Unmarshal(r.Data, &v) == nil {
 			s.radio = prepend(s.radio, Radio{Time: r.Time, Driver: s.code(v.Number), Lap: s.car(v.Number).Lap + 1, URL: v.URL})
+			s.emit(KindRadio, 1, []string{s.code(v.Number)}, "Team radio: %s", s.code(v.Number))
 		}
 	case "session_result":
 		var v struct {
@@ -318,6 +361,7 @@ func (s *State) applyLap(data json.RawMessage) {
 		return
 	}
 	c.Lap = v.Lap
+	s.started = true
 	if s.flag != Ended {
 		s.leaderLap = max(s.leaderLap, v.Lap+1)
 	}
@@ -345,8 +389,17 @@ func (s *State) applyLap(data json.RawMessage) {
 		c.BestLap = lt
 	}
 	if !v.PitOut && (s.best == nil || lt.Seconds < s.best.Seconds) {
+		if s.best != nil {
+			// Small improvements, common as a wet track dries, are minor.
+			priority := 1
+			if s.best.Seconds-lt.Seconds >= 0.2 {
+				priority = 2
+			}
+			s.emit(KindFastestLap, priority, []string{c.Code}, "Fastest lap: %s, %s on lap %d", c.Code, lapTimeText(lt.Seconds), v.Lap)
+		}
 		s.best = &Best{Driver: c.Code, Lap: v.Lap, Seconds: lt.Seconds}
 	}
+	s.lapDone(c, lt)
 }
 
 func (s *State) applyMessage(r Record) {
@@ -375,6 +428,12 @@ func (s *State) applyMessage(r Record) {
 	s.messages = prepend(s.messages, m)
 
 	msg := v.Message
+	prev := s.flag
+	defer func() {
+		if s.flag != prev {
+			s.flagEvent(prev, m.Lap)
+		}
+	}()
 	switch {
 	case strings.Contains(msg, "VIRTUAL SAFETY CAR DEPLOYED"):
 		s.flag = VSC
@@ -386,7 +445,9 @@ func (s *State) applyMessage(r Record) {
 		s.flag = Red
 	case m.Flag == "CHEQUERED":
 		s.flag = Ended
-	case m.Flag == "GREEN" && (v.Scope == nil || *v.Scope == "Track"):
+	case (m.Flag == "GREEN" || m.Flag == "CLEAR") && v.Scope != nil && *v.Scope == "Track",
+		m.Flag == "GREEN" && v.Scope == nil,
+		s.flag == Red && (msg == "SESSION STARTED" || msg == "ROLLING START"):
 		s.flag = Green
 		clear(s.yellows)
 	case (m.Flag == "YELLOW" || m.Flag == "DOUBLE YELLOW") && v.Sector != nil:
@@ -400,11 +461,22 @@ func (s *State) applyMessage(r Record) {
 			s.flag = Green
 		}
 	}
-	if v.Number != nil && strings.Contains(msg, "PENALTY") {
+	if v.Number == nil {
+		if sm := carInMessage.FindStringSubmatch(msg); sm != nil {
+			n, _ := strconv.Atoi(sm[1])
+			v.Number = &n
+		}
+	}
+	if v.Number != nil && strings.Contains(msg, "PENALTY") && !strings.Contains(msg, "NO FURTHER") {
 		c := s.car(*v.Number)
 		c.Penalty = append(c.Penalty, msg)
+		s.emit(KindPenalty, 3, []string{c.Code}, "%s", penaltyText(msg, c.Code))
 	}
 }
+
+// carInMessage finds the car a race control message is about, e.g.
+// "CAR 81 (PIA)".
+var carInMessage = regexp.MustCompile(`\bCAR (\d+) \(`)
 
 // Snapshot returns a copy of the state.
 func (s *State) Snapshot() Snapshot {

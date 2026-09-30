@@ -15,7 +15,7 @@ import (
 // replayAt plays a collected session as fast as possible and prints the
 // timing tower at each of the given times of day (UTC, e.g. "16:40"), to
 // check the live state against what happened.
-func replayAt(ctx context.Context, dir string, at []string, cars bool) error {
+func replayAt(ctx context.Context, dir string, at []string, cars bool, minPriority int) error {
 	src, err := replay.Open(dir, replay.Options{SkipCars: !cars})
 	if err != nil {
 		return err
@@ -37,7 +37,11 @@ func replayAt(ctx context.Context, dir string, at []string, cars bool) error {
 			printTower(state.Snapshot(), marks[0])
 			marks = marks[1:]
 		}
-		state.Apply(r)
+		for _, e := range state.Step(r) {
+			if minPriority > 0 && e.Priority >= minPriority {
+				fmt.Printf("%s L%-2d %d %-11s %s\n", e.Time.Format("15:04:05"), e.Lap, e.Priority, e.Kind, e.Text)
+			}
+		}
 		records++
 	})
 	if err != nil {

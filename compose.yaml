@@ -10,8 +10,11 @@ services:
       # Transcribes team radio when set; transcripts are kept in f1cache.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       F1MCP_CACHE_DIR: /cache
+      # Sessions collected with trackgen collect, for the live page's replays.
+      F1MCP_REPLAYS_DIR: /replays
     volumes:
       - f1cache:/cache
+      - ./replays:/replays:ro
     # Not published: only the web app calls it. Add "8080:8080" to use MCP
     # over HTTP from outside.
     expose: ["8080"]

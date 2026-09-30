@@ -1,6 +1,7 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
+import Link from 'next/link';
 import { DefaultChatTransport } from 'ai';
 import { useEffect, useRef, useState } from 'react';
 import type { ChatMessage } from '@/lib/types';
@@ -62,7 +63,10 @@ export function Chat() {
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
           <div className="h-5 w-1.5 rounded-sm bg-accent" />
           <h1 className="text-lg font-semibold tracking-tight">Pit Wall</h1>
-          <span className="hidden text-sm text-muted sm:inline">Formula 1, from the data</span>
+          <nav className="ml-4 flex gap-1 text-sm">
+            <span className="rounded-md bg-panel px-2.5 py-1">Chat</span>
+            <Link href="/live" className="rounded-md px-2.5 py-1 text-muted hover:bg-panel hover:text-text">Live</Link>
+          </nav>
           <label className="ml-auto flex items-center gap-2 text-sm text-muted">
             Model
             <select

@@ -17,6 +17,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/mariuspot/f1mcp/internal/api"
+	"github.com/mariuspot/f1mcp/internal/replay"
 	"github.com/mariuspot/f1mcp/internal/server"
 )
 
@@ -41,6 +42,10 @@ func main() {
 		web := api.Handler(reg, 256<<20)
 		mux.Handle("/api/", web)
 		mux.Handle("/img/", web)
+		// The live page, playing sessions collected into F1MCP_REPLAYS_DIR.
+		liveAPI := api.LiveHandler(replay.NewPlayer(os.Getenv("F1MCP_REPLAYS_DIR")))
+		mux.Handle("/api/live", liveAPI)
+		mux.Handle("/api/live/", liveAPI)
 		mux.Handle("/", mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, nil))
 		srv := &http.Server{Addr: *addr, Handler: mux}
 		go func() {
