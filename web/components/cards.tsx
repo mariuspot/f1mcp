@@ -166,7 +166,7 @@ export function lapTime(s?: number | null) {
 
 const gap = (s?: number | null) => (s == null ? '' : `+${s.toFixed(3)}`);
 
-const tyreColors: Record<string, string> = {
+export const tyreColors: Record<string, string> = {
   SOFT: '#DA291C', MEDIUM: '#FFD12E', HARD: '#F0F0EC', INTERMEDIATE: '#43B02A', WET: '#0067AD',
 };
 

@@ -42,3 +42,9 @@ export async function callTool<T>(
 export function fetchImage(id: string, signal?: AbortSignal) {
   return fetch(`${apiURL()}/img/${encodeURIComponent(id)}`, { signal });
 }
+
+// liveAPI passes a live page request through to the Go service.
+export async function liveAPI(path: string, init: RequestInit = {}) {
+  const resp = await fetch(`${apiURL()}${path}`, { ...init, cache: 'no-store' });
+  return new Response(resp.body, { status: resp.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+}
