@@ -36,9 +36,9 @@ export type Snapshot = {
   best_lap?: { driver: string; lap: number; seconds: number };
 };
 
-export type Status = { race?: string; title?: string; speed?: number; running: boolean; time?: string; error?: string; run: number };
+export type Status = { race?: string; title?: string; speed?: number; running: boolean; time?: string; start?: string; error?: string; run: number };
 
-export type Insight = { id: number; time: string; lap?: number; text: string; drivers?: string[]; events?: number[] };
+export type Insight = { id: number; kind?: string; topic?: string; time: string; lap?: number; text: string; drivers?: string[]; events?: number[] };
 
 export type LiveResponse = { status: Status; snapshot: Snapshot; events: LiveEvent[]; insights: Insight[] };
 

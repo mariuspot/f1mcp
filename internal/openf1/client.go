@@ -133,6 +133,14 @@ func (c *Client) RaceControl(ctx context.Context, f SessionFilter) ([]RaceContro
 	return get[RaceControl](ctx, c, "/race_control", q)
 }
 
+// StartingGrid is the grid for the race that follows a qualifying session,
+// given the qualifying session's key.
+func (c *Client) StartingGrid(ctx context.Context, f SessionFilter) ([]GridSlot, error) {
+	var q query
+	q.str("session_key", f.SessionKey)
+	return get[GridSlot](ctx, c, "/starting_grid", q)
+}
+
 func (c *Client) TeamRadio(ctx context.Context, f SessionDriverFilter) ([]TeamRadio, error) {
 	return get[TeamRadio](ctx, c, "/team_radio", f.query())
 }

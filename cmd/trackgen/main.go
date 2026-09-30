@@ -7,6 +7,7 @@
 //	go run ./cmd/trackgen render  # write map and corner images into assets/tracks
 //	go run ./cmd/trackgen collect -session 9636  # save everything OpenF1 has about a session, for replays
 //	go run ./cmd/trackgen replay -dir replays/2024-brazil-race -at 16:40,17:30  # the live state at moments of a replay
+//	go run ./cmd/trackgen preview -year 2024 -round Brazil  # the pre-race preview of a race or sprint
 //	go run ./cmd/trackgen insights -dir replays/2024-brazil-race -from 26 -to 45  # the insight agent's commentary on laps of a replay
 //
 // Layouts come from MultiViewer's circuit API, keyed by OpenF1's circuit_key,
@@ -67,6 +68,19 @@ func main() {
 			usage()
 		}
 		if err := collect(ctx, *session, *dir); err != nil {
+			log.Fatal(err)
+		}
+	case "preview":
+		fs := flag.NewFlagSet("preview", flag.ExitOnError)
+		year := fs.Int("year", 0, "season")
+		round := fs.String("round", "", "round number or name, e.g. Brazil")
+		session := fs.String("session", "race", "race or sprint")
+		dry := fs.Bool("dry", false, "print the data given to Claude instead of calling it")
+		fs.Parse(args)
+		if *year == 0 || *round == "" {
+			usage()
+		}
+		if err := preview(ctx, *year, *round, *session, *dry); err != nil {
 			log.Fatal(err)
 		}
 	case "insights":

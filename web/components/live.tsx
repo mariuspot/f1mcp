@@ -136,7 +136,7 @@ export function LiveView() {
             <SessionBar snap={snap} status={status} />
             <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
               <Tower cars={snap.cars} best={snap.best_lap} />
-              <Feed events={events} insights={insights} />
+              <Feed events={events} insights={insights} start={status?.start} />
             </div>
           </>
         ) : (
@@ -210,7 +210,7 @@ function SessionBar({ snap, status }: { snap: Snapshot; status?: Status }) {
   return (
     <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
       <h2 className="text-xl font-semibold">{status?.title ?? snap.session}</h2>
-      <span className="text-lg tabular-nums">Lap {snap.lap}</span>
+      <span className="text-lg tabular-nums">{buildUp(status, t) ?? `Lap ${snap.lap}`}</span>
       <span className={`rounded-md border px-2.5 py-0.5 text-sm font-medium ${flag.className}`}>{flag.label}</span>
       {snap.weather && (
         <span className="text-sm text-muted">
@@ -222,6 +222,15 @@ function SessionBar({ snap, status }: { snap: Snapshot; status?: Status }) {
       </span>
     </div>
   );
+}
+
+// buildUp describes the time before the scheduled start, e.g. "Build-up ·
+// starts in 12 min", or returns null once it has passed.
+function buildUp(status: Status | undefined, now?: string): string | null {
+  if (!status?.start || !now) return null;
+  const mins = (new Date(status.start).getTime() - new Date(now).getTime()) / 60000;
+  if (mins <= 0) return null;
+  return `Build-up · starts in ${Math.ceil(mins)} min`;
 }
 
 function Tower({ cars, best }: { cars: Car[]; best?: Snapshot['best_lap'] }) {
@@ -293,9 +302,18 @@ const kindStyle: Record<string, string> = {
   radio: 'border-l-muted',
 };
 
+const topicLabel: Record<string, string> = {
+  welcome: 'Welcome',
+  grid: 'The grid',
+  last_year: 'Last year',
+  strategy: 'Strategy',
+  championship: 'Championship',
+  watch: 'One to watch',
+};
+
 type FeedItem = { key: string; time: string; lap?: number } & ({ insight: Insight } | { event: LiveEvent });
 
-function Feed({ events, insights }: { events: LiveEvent[]; insights: Insight[] }) {
+function Feed({ events, insights, start }: { events: LiveEvent[]; insights: Insight[]; start?: string }) {
   const [all, setAll] = useState(false);
   const items: FeedItem[] = [
     ...insights.map(i => ({ key: `i${i.id}`, time: i.time, lap: i.lap, insight: i })),
@@ -314,10 +332,25 @@ function Feed({ events, insights }: { events: LiveEvent[]; insights: Insight[] }
         {items.length === 0 && <li className="px-1 text-sm text-muted">Nothing yet.</li>}
         {items.map(item =>
           'insight' in item ? (
-            <li key={item.key} className="rounded-lg border border-accent/35 bg-accent/10 px-3 py-2 text-sm">
+            <li
+              key={item.key}
+              className={`rounded-lg border px-3 py-2 text-sm ${item.insight.kind === 'preview' ? 'border-sky-400/35 bg-sky-400/10' : 'border-accent/35 bg-accent/10'}`}
+            >
               <div className="mb-0.5 flex items-center gap-2 text-xs">
-                <span className="font-semibold uppercase tracking-wide text-accent">Pit wall</span>
-                <span className="tabular-nums text-muted">{item.lap ? `Lap ${item.lap}` : ''}</span>
+                {item.insight.kind === 'preview' ? (
+                  <span className="font-semibold uppercase tracking-wide text-sky-300">
+                    Pre-race{item.insight.topic ? ` · ${topicLabel[item.insight.topic] ?? item.insight.topic}` : ''}
+                  </span>
+                ) : (
+                  <span className="font-semibold uppercase tracking-wide text-accent">Pit wall</span>
+                )}
+                <span className="tabular-nums text-muted">
+                  {item.insight.kind === 'preview' && start
+                    ? `${Math.max(0, Math.round((new Date(start).getTime() - new Date(item.time).getTime()) / 60000))} min to start`
+                    : item.lap
+                      ? `Lap ${item.lap}`
+                      : ''}
+                </span>
               </div>
               <p className="leading-relaxed">{item.insight.text}</p>
             </li>

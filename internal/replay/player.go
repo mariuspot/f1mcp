@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mariuspot/f1mcp/internal/f1"
 	"github.com/mariuspot/f1mcp/internal/insight"
 	"github.com/mariuspot/f1mcp/internal/live"
 )
@@ -19,8 +20,10 @@ import (
 // session.
 type Player struct {
 	root string // where collected sessions are, one folder each
-	// commentator, if set, writes insights on each replay.
+	// commentator, if set, writes insights on each replay; previewer, a
+	// preview before races and sprints replayed from the start.
 	commentator *insight.Commentator
+	previewer   *insight.Previewer
 
 	mu     sync.Mutex
 	state  *live.State
@@ -38,7 +41,8 @@ type Status struct {
 	Title   string    `json:"title,omitempty"`
 	Speed   float64   `json:"speed,omitempty"`
 	Running bool      `json:"running"`
-	Time    time.Time `json:"time,omitempty"` // session time now
+	Time    time.Time `json:"time,omitempty"`  // session time now
+	Start   time.Time `json:"start,omitempty"` // when the session is scheduled to start
 	Error   string    `json:"error,omitempty"`
 	// Run counts replays started; events are numbered from 1 in each.
 	Run int `json:"run"`
@@ -59,6 +63,13 @@ func NewPlayer(root string) *Player {
 // WithCommentator has the player write insights on its replays.
 func (p *Player) WithCommentator(c *insight.Commentator) *Player {
 	p.commentator = c
+	return p
+}
+
+// WithPreviewer has the player post a pre-race preview when a race or
+// sprint is replayed from the start.
+func (p *Player) WithPreviewer(pv *insight.Previewer) *Player {
+	p.previewer = pv
 	return p
 }
 
@@ -130,6 +141,12 @@ func (p *Player) Start(race string, speed float64, fromLap int) error {
 		return fmt.Errorf("no replay %q", race)
 	}
 	from := src.Manifest.Start
+	session := f1Session(src.Manifest.Session)
+	preview := p.previewer != nil && fromLap <= 1 && session != ""
+	if preview {
+		// Start in the build-up, when the preview is posted.
+		from = from.Add(-insight.PreviewLead)
+	}
 	if fromLap > 1 {
 		t, err := LapStart(dir, fromLap)
 		if err != nil {
@@ -144,13 +161,16 @@ func (p *Player) Start(race string, speed float64, fromLap int) error {
 	title := fmt.Sprintf("%d %s %s", src.Manifest.Year, src.Manifest.Country, src.Manifest.Session)
 	p.mu.Lock()
 	p.state, p.cancel = state, cancel
-	p.status = Status{Race: filepath.Base(race), Title: title, Speed: speed, Running: true, Time: from, Run: p.status.Run + 1}
+	p.status = Status{Race: filepath.Base(race), Title: title, Speed: speed, Running: true, Time: from, Start: src.Manifest.Start, Run: p.status.Run + 1}
 	p.started, p.fromTime = time.Time{}, from
 	p.mu.Unlock()
 
 	var run *insight.Run
 	if p.commentator != nil {
 		run = p.commentator.Start(ctx, state, "replay-"+filepath.Base(race))
+	}
+	if preview {
+		go p.previewer.Run(ctx, state, src.Manifest.Year, session, src.Manifest.Start)
 	}
 	go func() {
 		defer src.Close()
@@ -195,6 +215,18 @@ func (p *Player) Stop() {
 		p.status.Running = false
 		p.status.Time = p.state.Snapshot().Time
 	}
+}
+
+// f1Session is the f1 package's name for an OpenF1 session that gets a
+// preview, or "" if it doesn't.
+func f1Session(name string) string {
+	switch name {
+	case "Race":
+		return f1.Race
+	case "Sprint":
+		return f1.Sprint
+	}
+	return ""
 }
 
 // LapStart returns when the first car started lap n of a collected session.

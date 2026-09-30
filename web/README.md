@@ -19,6 +19,8 @@ The Live page (`/live`) follows a session as it happens: a timing tower (positio
 
 With `ANTHROPIC_API_KEY` set on the Go service, Claude (Sonnet 5 by default, or `F1MCP_INSIGHT_MODEL`) adds insight as things happen: why a car probably pitted, what a safety car or undercut means, who is quicker on which tyres. It comments on notable events at most every 8 s of real time, and otherwise every 30 s of race time or straight away for a flag, lead change or penalty. Insights are cached by race and moment in `F1MCP_CACHE_DIR`, so a replay played again costs nothing.
 
+Before a race or sprint, the feed opens 30 minutes before the start with a preview, one message about every 5 minutes: welcome and conditions, the grid, last year here compared with this year, the likely strategy (last year's stops and pit lane time, today's weather), the championship, and who to watch (drivers starting out of position). It's written once per race by Claude Opus 5.5 (or `F1MCP_PREVIEW_MODEL`) from qualifying, OpenF1's starting grid, the standings and last year's race, and cached. Replays of a race from lap 1 start with the build-up. `go run ./cmd/trackgen preview -year 2024 -round Brazil` prints one (`-dry` for the data).
+
 To judge the commentary after changing the prompt or events, replay part of a race through the same batching and print what Claude says (`-dry` prints the prompts instead):
 
 ```sh
