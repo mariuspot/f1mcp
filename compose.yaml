@@ -10,6 +10,10 @@ services:
       # Transcribes team radio when set; transcripts are kept in f1cache.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       F1MCP_CACHE_DIR: /cache
+      # Claude's insights on the live page; F1MCP_INSIGHT_MODEL picks the
+      # model (default claude-sonnet-5).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      F1MCP_INSIGHT_MODEL: ${F1MCP_INSIGHT_MODEL:-}
       # Sessions collected with trackgen collect, for the live page's replays.
       F1MCP_REPLAYS_DIR: /replays
     volumes:

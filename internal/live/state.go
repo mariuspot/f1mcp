@@ -45,9 +45,12 @@ type Car struct {
 	TyreAge  int       `json:"tyre_age"` // laps on this set, including before this stint
 	Stint    int       `json:"stint,omitempty"`
 	Stops    []PitStop `json:"stops,omitempty"`
-	InPit    bool      `json:"in_pit,omitempty"`
-	Out      string    `json:"out,omitempty"` // "DNF", "DNS" or "DSQ"
-	Penalty  []string  `json:"penalties,omitempty"`
+	// RedFlagChanges counts tyre changes made while the session was
+	// stopped, which aren't pit stops.
+	RedFlagChanges int      `json:"red_flag_changes,omitempty"`
+	InPit          bool     `json:"in_pit,omitempty"`
+	Out            string   `json:"out,omitempty"` // "DNF", "DNS" or "DSQ"
+	Penalty        []string `json:"penalties,omitempty"`
 
 	stintStart, stintAge int
 	laps                 []lapRecord
@@ -152,7 +155,10 @@ type State struct {
 	leader   int            // car number
 	reported map[string]int // lap each closing/pace pair was last reported
 	rain     rainWatch
-	started  bool // a car has completed a lap
+
+	insights    []Insight
+	nextInsight int
+	started     bool // a car has completed a lap
 }
 
 // NewState returns an empty state.

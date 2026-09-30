@@ -38,6 +38,8 @@ export type Snapshot = {
 
 export type Status = { race?: string; title?: string; speed?: number; running: boolean; time?: string; error?: string; run: number };
 
-export type LiveResponse = { status: Status; snapshot: Snapshot; events: LiveEvent[] };
+export type Insight = { id: number; time: string; lap?: number; text: string; drivers?: string[]; events?: number[] };
+
+export type LiveResponse = { status: Status; snapshot: Snapshot; events: LiveEvent[]; insights: Insight[] };
 
 export type Race = { id: string; title: string; laps: number };

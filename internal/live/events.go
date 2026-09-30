@@ -231,6 +231,7 @@ func (s *State) pitEvent(c *Car, compound string, age int) {
 	was := tyreText(c.Compound, c.TyreAge)
 	now := tyreText(compound, age)
 	if s.flag == Red {
+		c.RedFlagChanges++
 		s.emit(KindPit, 2, []string{c.Code}, "%s changes tyres under the red flag: %s for %s", c.Code, was, now)
 		return
 	}
@@ -275,4 +276,44 @@ func (s *State) rainChange(rain bool, trackC float64) {
 	} else {
 		s.emit(KindWeather, 2, nil, "The rain has stopped (track %.0f °C)", trackC)
 	}
+}
+
+// Insight is commentary on what's happening, written by the insight agent.
+type Insight struct {
+	ID      int       `json:"id"`
+	Time    time.Time `json:"time"`
+	Lap     int       `json:"lap,omitempty"`
+	Text    string    `json:"text"`
+	Drivers []string  `json:"drivers,omitempty"`
+	Events  []int     `json:"events,omitempty"` // the events it's about
+}
+
+// AddInsight adds commentary at the state's current time.
+func (s *State) AddInsight(in Insight) Insight {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.nextInsight++
+	in.ID, in.Time, in.Lap = s.nextInsight, s.now, s.leaderLap
+	s.insights = append(s.insights, in)
+	return in
+}
+
+// InsightsSince returns the insights after the one with the given ID,
+// oldest first.
+func (s *State) InsightsSince(id int) []Insight {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for i, in := range s.insights {
+		if in.ID > id {
+			return append([]Insight(nil), s.insights[i:]...)
+		}
+	}
+	return nil
+}
+
+// Recent returns up to n recent race control messages, the latest first.
+func (s *State) Recent(n int) []Message {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return append([]Message(nil), s.messages[:min(n, len(s.messages))]...)
 }
