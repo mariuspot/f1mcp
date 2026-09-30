@@ -47,12 +47,19 @@ type Car struct {
 	Stops    []PitStop `json:"stops,omitempty"`
 	// RedFlagChanges counts tyre changes made while the session was
 	// stopped, which aren't pit stops.
-	RedFlagChanges int      `json:"red_flag_changes,omitempty"`
-	InPit          bool     `json:"in_pit,omitempty"`
-	Out            string   `json:"out,omitempty"` // "DNF", "DNS" or "DSQ"
-	Penalty        []string `json:"penalties,omitempty"`
+	RedFlagChanges int `json:"red_flag_changes,omitempty"`
+	// Pace is the average of the last 3 racing laps in a row: green-flag
+	// laps, not in or out of the pits. Unset until there are 3.
+	Pace *float64 `json:"pace,omitempty"`
+	// TrackLimits counts lap times deleted for track limits.
+	TrackLimits int      `json:"track_limits,omitempty"`
+	InPit       bool     `json:"in_pit,omitempty"`
+	Out         string   `json:"out,omitempty"` // "DNF", "DNS" or "DSQ"
+	Penalty     []string `json:"penalties,omitempty"`
 
 	stintStart, stintAge int
+	pittedAt             time.Time // when the car last came out on new tyres
+	lastPass             time.Time
 	laps                 []lapRecord
 }
 
@@ -62,8 +69,11 @@ type LapTime struct {
 	Seconds float64     `json:"seconds"`
 	Sectors [3]*float64 `json:"sectors"`
 	PitOut  bool        `json:"pit_out,omitempty"`
-	Started time.Time   `json:"started"`
-	Purple  [3]bool     `json:"purple_sectors"` // fastest of anyone so far
+	// Neutral is set for a lap finished behind the safety car or VSC, or
+	// under a red flag: not a lap at racing speed.
+	Neutral bool      `json:"neutral,omitempty"`
+	Started time.Time `json:"started"`
+	Purple  [3]bool   `json:"purple_sectors"` // fastest of anyone so far
 }
 
 // PitStop is a stop in the pit lane.
@@ -159,6 +169,10 @@ type State struct {
 	insights    []Insight
 	nextInsight int
 	started     bool // a car has completed a lap
+	// neutralUntil is when the field was last released from a safety
+	// car, VSC or red flag (far in the future while neutralised).
+	neutralUntil time.Time
+	lastNeutral  Flag
 }
 
 // NewState returns an empty state.
@@ -234,7 +248,12 @@ func (s *State) apply(r Record) {
 			s.car(v.Number).Position = v.Position
 			if v.Position == 1 && v.Number != s.leader {
 				if s.leader != 0 {
-					s.emit(KindLead, 3, []string{s.code(v.Number), s.code(s.leader)}, "%s takes the lead from %s", s.code(v.Number), s.code(s.leader))
+					was := s.car(s.leader)
+					if !was.pittedAt.IsZero() && r.Time.Sub(was.pittedAt) < pitShuffle {
+						s.emit(KindLead, 3, []string{s.code(v.Number), was.Code}, "%s takes the lead as %s pits", s.code(v.Number), was.Code)
+					} else {
+						s.emit(KindLead, 3, []string{s.code(v.Number), was.Code}, "%s takes the lead from %s", s.code(v.Number), was.Code)
+					}
 				}
 				s.leader = v.Number
 			}
@@ -264,6 +283,7 @@ func (s *State) apply(r Record) {
 			c := s.car(v.Number)
 			if v.Stint > c.Stint && c.Stint > 0 {
 				s.pitEvent(c, v.Compound, v.AgeStart)
+				c.pittedAt = r.Time
 			}
 			if v.Stint >= c.Stint {
 				c.Stint, c.Compound, c.stintStart, c.stintAge = v.Stint, v.Compound, v.LapStart, v.AgeStart
@@ -313,10 +333,28 @@ func (s *State) apply(r Record) {
 		}
 		if json.Unmarshal(r.Data, &v) == nil {
 			s.overtakes = prepend(s.overtakes, Overtake{Time: r.Time, By: s.code(v.By), Of: s.code(v.Of), Position: v.Position})
+			// No one may pass on track behind the safety car or VSC or under a
+			// red flag, so a change of places then comes from a pit stop.
+			if s.flag == SC || s.flag == VSC || s.flag == Red {
+				s.emit(KindOvertake, 1, []string{s.code(v.By), s.code(v.Of)}, "%s moves ahead of %s for P%d", s.code(v.By), s.code(v.Of), v.Position)
+				break
+			}
+			// A place gained because the other car pitted isn't a pass.
+			if of := s.car(v.Of); !of.pittedAt.IsZero() && r.Time.Sub(of.pittedAt) < pitShuffle {
+				s.emit(KindOvertake, 1, []string{s.code(v.By), s.code(v.Of)}, "%s moves ahead of %s for P%d as %s pits", s.code(v.By), s.code(v.Of), v.Position, s.code(v.Of))
+				break
+			}
 			priority := 1
-			if v.Position <= 10 {
+			if v.Position <= 5 {
 				priority = 2
 			}
+			// Several "passes" by one car within a couple of seconds are the
+			// position feed catching up, not racing; keep them minor.
+			by := s.car(v.By)
+			if r.Time.Sub(by.lastPass) < 2*time.Second {
+				priority = 1
+			}
+			by.lastPass = r.Time
 			s.emit(KindOvertake, priority, []string{s.code(v.By), s.code(v.Of)}, "%s passes %s for P%d", s.code(v.By), s.code(v.Of), v.Position)
 		}
 	case "team_radio":
@@ -377,7 +415,10 @@ func (s *State) applyLap(data json.RawMessage) {
 	if v.Duration == nil {
 		return
 	}
-	lt := &LapTime{Lap: v.Lap, Seconds: *v.Duration, Sectors: [3]*float64{v.S1, v.S2, v.S3}, PitOut: v.PitOut, Started: v.Start}
+	// A lap is neutralised if any of it was run behind the safety car or
+	// VSC or under a red flag: it started before the field was released.
+	lt := &LapTime{Lap: v.Lap, Seconds: *v.Duration, Sectors: [3]*float64{v.S1, v.S2, v.S3}, PitOut: v.PitOut, Started: v.Start,
+		Neutral: neutral(s.flag) || (!v.Start.IsZero() && v.Start.Before(s.neutralUntil))}
 	for i, sec := range lt.Sectors {
 		if sec == nil {
 			continue
@@ -396,9 +437,11 @@ func (s *State) applyLap(data json.RawMessage) {
 	}
 	if !v.PitOut && (s.best == nil || lt.Seconds < s.best.Seconds) {
 		if s.best != nil {
-			// Small improvements, common as a wet track dries, are minor.
+			// Small improvements, common as a track dries, are minor, as is
+			// the holder going quicker again unless by a lot.
 			priority := 1
-			if s.best.Seconds-lt.Seconds >= 0.2 {
+			gain := s.best.Seconds - lt.Seconds
+			if (s.best.Driver != c.Code && gain >= 0.2) || gain >= 0.5 {
 				priority = 2
 			}
 			s.emit(KindFastestLap, priority, []string{c.Code}, "Fastest lap: %s, %s on lap %d", c.Code, lapTimeText(lt.Seconds), v.Lap)
@@ -437,6 +480,13 @@ func (s *State) applyMessage(r Record) {
 	prev := s.flag
 	defer func() {
 		if s.flag != prev {
+			switch {
+			case neutral(s.flag):
+				s.neutralUntil = time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC)
+				s.lastNeutral = s.flag
+			case neutral(prev):
+				s.neutralUntil = s.now
+			}
 			s.flagEvent(prev, m.Lap)
 		}
 	}()
@@ -473,12 +523,30 @@ func (s *State) applyMessage(r Record) {
 			v.Number = &n
 		}
 	}
+	if v.Number != nil && strings.Contains(msg, "DELETED") && strings.Contains(msg, "TRACK LIMITS") {
+		s.car(*v.Number).TrackLimits++
+	}
 	if v.Number != nil && strings.Contains(msg, "PENALTY") && !strings.Contains(msg, "NO FURTHER") {
 		c := s.car(*v.Number)
 		c.Penalty = append(c.Penalty, msg)
 		s.emit(KindPenalty, 3, []string{c.Code}, "%s", penaltyText(msg, c.Code))
 	}
 }
+
+// Now returns the session time of the latest record.
+func (s *State) Now() time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.now
+}
+
+// pitShuffle is how long after a car's stop a place it loses is put down to
+// the stop rather than a pass: overtakes are timed at the line, and new
+// tyres show up as the car leaves the pit lane.
+const pitShuffle = 90 * time.Second
+
+// neutral reports whether the field is neutralised under a flag.
+func neutral(f Flag) bool { return f == SC || f == VSC || f == Red }
 
 // carInMessage finds the car a race control message is about, e.g.
 // "CAR 81 (PIA)".
@@ -491,6 +559,10 @@ func (s *State) Snapshot() Snapshot {
 	snap := Snapshot{Time: s.now, Session: s.session, Lap: s.leaderLap, TotalLaps: s.totalLaps, Flag: s.flag, Weather: s.weather, BestLap: s.best}
 	for _, c := range s.cars {
 		cc := *c
+		if p := recentPace(c.laps, 3); p > 0 {
+			cc.Pace = &p
+		}
+		cc.laps = nil
 		cc.Stops = slices.Clone(c.Stops)
 		cc.Penalty = slices.Clone(c.Penalty)
 		snap.Cars = append(snap.Cars, cc)

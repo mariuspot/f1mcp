@@ -7,6 +7,7 @@
 //	go run ./cmd/trackgen render  # write map and corner images into assets/tracks
 //	go run ./cmd/trackgen collect -session 9636  # save everything OpenF1 has about a session, for replays
 //	go run ./cmd/trackgen replay -dir replays/2024-brazil-race -at 16:40,17:30  # the live state at moments of a replay
+//	go run ./cmd/trackgen insights -dir replays/2024-brazil-race -from 26 -to 45  # the insight agent's commentary on laps of a replay
 //
 // Layouts come from MultiViewer's circuit API, keyed by OpenF1's circuit_key,
 // and are stored in internal/tracks/data/circuits. Only missing ones are
@@ -66,6 +67,20 @@ func main() {
 			usage()
 		}
 		if err := collect(ctx, *session, *dir); err != nil {
+			log.Fatal(err)
+		}
+	case "insights":
+		fs := flag.NewFlagSet("insights", flag.ExitOnError)
+		dir := fs.String("dir", "", "a collected session, e.g. replays/2024-brazil-race")
+		from := fs.Int("from", 1, "first lap")
+		to := fs.Int("to", 0, "stop at the start of this lap (0: the end)")
+		dry := fs.Bool("dry", false, "print the prompts instead of calling Claude")
+		cache := fs.String("cache", "", "where to keep insights (default: nowhere, so each run asks Claude)")
+		fs.Parse(args)
+		if *dir == "" {
+			usage()
+		}
+		if err := insights(ctx, *dir, *from, *to, *dry, *cache); err != nil {
 			log.Fatal(err)
 		}
 	case "replay":

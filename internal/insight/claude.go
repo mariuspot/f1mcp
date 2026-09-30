@@ -51,26 +51,33 @@ func (c *Claude) WithBaseURL(u string) *Claude {
 func (c *Claude) Model() string { return c.model }
 
 // Complete sends one user message with a system prompt and returns the
-// text of the reply.
-func (c *Claude) Complete(ctx context.Context, system, user string, maxTokens int) (string, error) {
-	body, err := json.Marshal(map[string]any{
+// text of the reply. With an effort ("low", "medium", "high"), Claude
+// thinks before answering, as much as the effort allows; the thinking
+// isn't returned, and maxTokens must leave room for it.
+func (c *Claude) Complete(ctx context.Context, system, user string, maxTokens int, effort string) (string, error) {
+	req := map[string]any{
 		"model":      c.model,
 		"max_tokens": maxTokens,
 		// The system prompt is the same for every call, so cache it.
 		"system":   []map[string]any{{"type": "text", "text": system, "cache_control": map[string]string{"type": "ephemeral"}}},
 		"messages": []map[string]any{{"role": "user", "content": user}},
-	})
+	}
+	if effort != "" {
+		req["thinking"] = map[string]any{"type": "adaptive"}
+		req["output_config"] = map[string]any{"effort": effort}
+	}
+	body, err := json.Marshal(req)
 	if err != nil {
 		return "", err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/messages", bytes.NewReader(body))
+	hreq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/messages", bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("x-api-key", c.key)
-	req.Header.Set("anthropic-version", apiVersion)
-	req.Header.Set("content-type", "application/json")
-	resp, err := c.http.Do(req)
+	hreq.Header.Set("x-api-key", c.key)
+	hreq.Header.Set("anthropic-version", apiVersion)
+	hreq.Header.Set("content-type", "application/json")
+	resp, err := c.http.Do(hreq)
 	if err != nil {
 		return "", err
 	}
