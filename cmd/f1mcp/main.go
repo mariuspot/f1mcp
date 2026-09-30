@@ -51,6 +51,12 @@ func main() {
 		if c := insight.NewCommentator(claude, insightDir()); c != nil {
 			player.WithCommentator(c)
 		}
+		// And previews races and sprints before the start, with Opus unless
+		// F1MCP_PREVIEW_MODEL says otherwise.
+		previewModel := envOr("F1MCP_PREVIEW_MODEL", insight.DefaultPreviewModel)
+		if pv := insight.NewPreviewer(insight.NewClaude(os.Getenv("ANTHROPIC_API_KEY"), previewModel, nil), server.Service(), insightDir()); pv != nil {
+			player.WithPreviewer(pv)
+		}
 		liveAPI := api.LiveHandler(player)
 		mux.Handle("/api/live", liveAPI)
 		mux.Handle("/api/live/", liveAPI)

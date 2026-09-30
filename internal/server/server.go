@@ -4,6 +4,7 @@ package server
 import (
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -20,11 +21,25 @@ import (
 // kept in F1MCP_CACHE_DIR if that's set.
 func New(version string) (*mcp.Server, *tools.Registry) {
 	s := mcp.NewServer(&mcp.Implementation{Name: "f1mcp", Version: version}, nil)
-	svc := f1.New(jolpica.NewClient("", nil), openf1.NewClient("", nil))
+	svc := Service()
 	if t := transcribe.New(os.Getenv("OPENAI_API_KEY"), transcriptDir(), nil); t != nil {
 		svc.WithTranscriber(t)
 	}
 	return s, tools.Register(s, svc)
+}
+
+var (
+	svcOnce sync.Once
+	svc     *f1.Service
+)
+
+// Service is the f1 service shared by the tools and the live page, so they
+// share one cache and one OpenF1 rate limit.
+func Service() *f1.Service {
+	svcOnce.Do(func() {
+		svc = f1.New(jolpica.NewClient("", nil), openf1.NewClient("", nil))
+	})
+	return svc
 }
 
 func transcriptDir() string {

@@ -281,7 +281,11 @@ func (s *State) rainChange(rain bool, trackC float64) {
 
 // Insight is commentary on what's happening, written by the insight agent.
 type Insight struct {
-	ID      int       `json:"id"`
+	ID int `json:"id"`
+	// Kind is "preview" for the pre-race preview, or empty for live
+	// commentary; Topic says what a preview message is about.
+	Kind    string    `json:"kind,omitempty"`
+	Topic   string    `json:"topic,omitempty"`
 	Time    time.Time `json:"time"`
 	Lap     int       `json:"lap,omitempty"`
 	Text    string    `json:"text"`

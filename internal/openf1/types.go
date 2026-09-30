@@ -198,3 +198,12 @@ type TeamRadio struct {
 	DriverNumber int       `json:"driver_number"`
 	RecordingURL string    `json:"recording_url"`
 }
+
+// GridSlot is a car's place on a race's starting grid, filed under the
+// qualifying session. It includes grid penalties.
+type GridSlot struct {
+	SessionKey   int      `json:"session_key"`
+	Position     int      `json:"position"`
+	DriverNumber int      `json:"driver_number"`
+	LapDuration  *float64 `json:"lap_duration"`
+}
