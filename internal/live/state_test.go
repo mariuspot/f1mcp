@@ -2,6 +2,7 @@ package live
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -88,5 +89,16 @@ func TestFlags(t *testing.T) {
 		if got := s.Snapshot().Flag; got != st.want {
 			t.Errorf("after %q: flag %s, want %s", st.msg["message"], got, st.want)
 		}
+	}
+}
+
+// An empty state still gives lists, not null, to the live page.
+func TestEmptySnapshot(t *testing.T) {
+	b, err := json.Marshal(NewState().Snapshot())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"cars":[]`) {
+		t.Errorf("empty snapshot = %s", b)
 	}
 }
