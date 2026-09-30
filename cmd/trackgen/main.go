@@ -5,6 +5,7 @@
 //	go run ./cmd/trackgen incident -session 9523  # store the incident behind a red flag
 //	go run ./cmd/trackgen lap -session 11373 -count 2  # store the two fastest laps of a session
 //	go run ./cmd/trackgen render  # write map and corner images into assets/tracks
+//	go run ./cmd/trackgen collect -session 9636  # save everything OpenF1 has about a session, for replays
 //
 // Layouts come from MultiViewer's circuit API, keyed by OpenF1's circuit_key,
 // and are stored in internal/tracks/data/circuits. Only missing ones are
@@ -53,6 +54,17 @@ func main() {
 			}
 		}
 		if err := fetch(ctx, o); err != nil {
+			log.Fatal(err)
+		}
+	case "collect":
+		fs := flag.NewFlagSet("collect", flag.ExitOnError)
+		session := fs.Int("session", 0, "OpenF1 session key")
+		dir := fs.String("dir", "", "where to save it (default replays/<year>-<country>-<session>)")
+		fs.Parse(args)
+		if *session == 0 {
+			usage()
+		}
+		if err := collect(ctx, *session, *dir); err != nil {
 			log.Fatal(err)
 		}
 	case "incident":
